@@ -22,6 +22,12 @@ namespace PhotonUI.Controls
                 value.Parent = this;
 
                 this.RequestArrange();
+
+                if (IsInitialized)
+                {
+                    if (Window == null)
+                        throw new InvalidOperationException($"Control '{value.Name}' is not associated with a RootWindow.");
+                }
             }
         }
 

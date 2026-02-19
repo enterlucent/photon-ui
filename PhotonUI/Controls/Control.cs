@@ -20,6 +20,8 @@ namespace PhotonUI.Controls
     {
         protected readonly IServiceProvider ServiceProvider = serviceProvider;
 
+        public Window? Window;
+
         [ObservableProperty] private Control? parent = null;
         [ObservableProperty] private string name = typeof(Control).Name;
         [ObservableProperty] private object? dataContext = null;
@@ -236,6 +238,9 @@ namespace PhotonUI.Controls
         {
             if (!this.IsInitialized)
                 return;
+
+            if (this.Window == null)
+                throw new InvalidOperationException($"Control '{this.Name}' is not associated to a RootWindow.");
 
             base.OnPropertyChanged(e);
 
