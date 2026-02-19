@@ -4,6 +4,8 @@ VisualStudioVersion = 18.0.11217.181
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhotonUI.Demo", "PhotonUI.Demo\PhotonUI.Demo.csproj", "{21F206A8-7BB3-66BA-84C5-36E5EA19BC60}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhotonUI", "PhotonUI\PhotonUI.csproj", "{557BBE31-6B11-8107-489C-7D4CD5BDD9A0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,6 +16,10 @@ Global
 		{21F206A8-7BB3-66BA-84C5-36E5EA19BC60}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{21F206A8-7BB3-66BA-84C5-36E5EA19BC60}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{21F206A8-7BB3-66BA-84C5-36E5EA19BC60}.Release|Any CPU.Build.0 = Release|Any CPU
+		{557BBE31-6B11-8107-489C-7D4CD5BDD9A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{557BBE31-6B11-8107-489C-7D4CD5BDD9A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{557BBE31-6B11-8107-489C-7D4CD5BDD9A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{557BBE31-6B11-8107-489C-7D4CD5BDD9A0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--Dependency Injection-->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <!--MVVM Community Toolkit -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <!-- Core SDL3 C# bindings -->
+    <PackageReference Include="SDL3-CS" Version="3.3.2.1" />
+    <PackageReference Include="SDL3-CS.Native" Version="3.3.2" />
+    <PackageReference Include="SDL3-CS.Native.Image" Version="3.2.4" />
+    <PackageReference Include="SDL3-CS.Native.Mixer" Version="2.8.1.1" />
+    <PackageReference Include="SDL3-CS.Native.TTF" Version="3.2.2" />
+  </ItemGroup>
+
+</Project>
