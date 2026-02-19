@@ -1,4 +1,4 @@
-﻿namespace NucleusAF.Photon.Models
+﻿namespace PhotonUI.Models
 {
     public struct Size
     {

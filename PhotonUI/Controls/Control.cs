@@ -1,9 +1,13 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using NucleusAF.Photon.Models;
+using PhotonUI.Exceptions;
+using PhotonUI.Interfaces;
+using PhotonUI.Models;
+using PhotonUI.Models.Properties;
 using SDL3;
 using System.ComponentModel;
+using System.Reflection;
 
-namespace NucleusAF.Photon.Controls
+namespace PhotonUI.Controls
 {
     public enum TunnelDirection
     {
@@ -12,7 +16,7 @@ namespace NucleusAF.Photon.Controls
     }
 
     public partial class Control(IServiceProvider serviceProvider)
-        : ObservableObject, IDisposable
+        : ObservableObject, IDisposable, IControlProperties
     {
         protected readonly IServiceProvider ServiceProvider = serviceProvider;
 
@@ -29,25 +33,27 @@ namespace NucleusAF.Photon.Controls
 
         #region Control: Style Properties
 
-        [ObservableProperty] private float minWidth;
-        [ObservableProperty] private float minHeight;
-        [ObservableProperty] private float maxWidth;
-        [ObservableProperty] private float maxHeight;
+        [ObservableProperty] private float minWidth = ControlProperties.Default.MinWidth;
+        [ObservableProperty] private float minHeight = ControlProperties.Default.MinHeight;
+        [ObservableProperty] private float maxWidth = ControlProperties.Default.MaxWidth;
+        [ObservableProperty] private float maxHeight = ControlProperties.Default.MaxHeight;
 
-        [ObservableProperty] private bool focusOnHover;
-        [ObservableProperty] private int tabIndex;
-        [ObservableProperty] private int zIndex;
+        [ObservableProperty] private bool focusOnHover = ControlProperties.Default.FocusOnHover;
+        [ObservableProperty] private int tabIndex = ControlProperties.Default.TabIndex;
+        [ObservableProperty] private int zIndex = ControlProperties.Default.ZIndex;
 
-        [ObservableProperty] private Thickness margin;
-        [ObservableProperty] private Thickness padding;
+        [ObservableProperty] private HorizontalAlignment horizontalAlignment = ControlProperties.Default.HorizontalAlignment;
+        [ObservableProperty] private VerticalAlignment verticalAlignment = ControlProperties.Default.VerticalAlignment;
+        [ObservableProperty] private Thickness margin = ControlProperties.Default.Margin;
+        [ObservableProperty] private Thickness padding = ControlProperties.Default.Padding;
 
-        [ObservableProperty] private SDL.Color backgroundColor;
-        [ObservableProperty] private float opacity;
+        [ObservableProperty] private SDL.Color backgroundColor = ControlProperties.Default.BackgroundColor;
+        [ObservableProperty] private float opacity = ControlProperties.Default.Opacity;
 
-        [ObservableProperty] private bool clipToBounds;
-        [ObservableProperty] private bool isHitTestVisible;
+        [ObservableProperty] private bool clipToBounds = ControlProperties.Default.ClipToBounds;
+        [ObservableProperty] private bool isHitTestVisible = ControlProperties.Default.IsHitTestVisible;
 
-        [ObservableProperty] private SDL.SystemCursor cursor;
+        [ObservableProperty] private SDL.SystemCursor cursor = ControlProperties.Default.Cursor;
 
         #endregion
 
@@ -73,11 +79,127 @@ namespace NucleusAF.Photon.Controls
 
         #endregion
 
+        #region Control: Service 
+
+        public virtual T FromControl<T>() where T : struct, IStyleProperties
+        {
+            Type targetType = typeof(T);
+
+            ConstructorInfo? ctor = targetType.GetConstructors().FirstOrDefault()
+                ?? throw new InvalidOperationException($"No constructor found for {targetType.Name}");
+
+            object?[] parameters = [.. ctor.GetParameters().Select(p =>
+            {
+                string name = p.Name ?? throw new InvalidOperationException($"Constructor parameter has no name in {targetType.Name}");
+
+                PropertyInfo? controlProp = this.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)
+                    ?? throw new InvalidOperationException($"No property {name} on {this.GetType().Name}");
+
+                return controlProp.GetValue(this);
+            })];
+
+            return (T)ctor.Invoke(parameters);
+        }
+        public virtual void ApplyProperties<T>(T props) where T : IStyleProperties
+        {
+            Type sourceType = typeof(T);
+            Type targetType = this.GetType();
+
+            foreach (PropertyInfo prop in sourceType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                PropertyInfo? targetProp =
+                    targetType.GetProperty(prop.Name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+
+                if (targetProp != null && targetProp.CanWrite)
+                {
+                    object? value = prop.GetValue(props);
+
+                    targetProp.SetValue(this, value);
+                }
+            }
+        }
+        public virtual void ApplyDefault<T>(bool overrideValues = false) where T : struct, IStyleProperties
+        {
+            Type targetType = typeof(T);
+
+            PropertyInfo? defaultProp = targetType.GetProperty("Default", BindingFlags.Public | BindingFlags.Static)
+                ?? throw new InvalidOperationException($"Type {targetType.Name} does not define a static Default property.");
+
+            object? defaultInstance = defaultProp.GetValue(null);
+
+            if (defaultInstance is not T props)
+                throw new InvalidOperationException($"Default property on {targetType.Name} is not of type {targetType.Name}.");
+
+            Type sourceType = typeof(T);
+            Type controlType = this.GetType();
+
+            foreach (PropertyInfo prop in sourceType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                PropertyInfo? targetProp = controlType.GetProperty(prop.Name,
+                    BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+
+                if (targetProp != null && targetProp.CanWrite)
+                {
+                    object? currentValue = targetProp.GetValue(this);
+                    object? defaultValue = prop.GetValue(props);
+                    object? typeDefault = targetProp.PropertyType.IsValueType
+                        ? Activator.CreateInstance(targetProp.PropertyType)
+                        : null;
+
+                    if (overrideValues || Equals(currentValue, typeDefault))
+                        targetProp.SetValue(this, defaultValue);
+                }
+            }
+        }
+
+        #endregion
+
         #region Control: Framework
+
+        protected virtual void ValidateStyles(params IStyleProperties[] properties)
+        {
+            HashSet<Type> supportedInterfaces = [.. this.GetType().GetInterfaces()];
+            List<string> unsupported = [];
+
+            foreach (IStyleProperties prop in properties)
+            {
+                Type[] propInterfaces = prop?.GetType().GetInterfaces() ?? [];
+
+                bool supported = prop != null && propInterfaces.Any(i => supportedInterfaces.Contains(i));
+
+                if (!supported)
+                {
+                    string typeName = prop?.GetType().FullName ?? "null";
+
+                    unsupported.Add(typeName);
+                }
+            }
+
+            if (unsupported.Count > 0)
+            {
+                string message = $"Control '{this.GetType().Name}' does not support property types: {string.Join(", ", unsupported)}";
+
+                throw new InvalidStyleException(message, typeof(IStyleProperties));
+            }
+        }
+        public virtual void ApplyStyles(params IStyleProperties[] properties)
+        {
+            this.ValidateStyles(properties);
+
+            foreach (IStyleProperties prop in properties)
+            {
+                switch (prop)
+                {
+                    case IControlProperties controlProperties:
+                        this.ApplyProperties(controlProperties);
+                        break;
+                }
+            }
+        }
 
         public virtual bool TunnelControls(Func<Control, bool> tunneler, TunnelDirection direction = TunnelDirection.TopDown)
             => tunneler(this);
-        
+
         public virtual void RequestMeasure()
         {
             this.TunnelControls(control =>
@@ -125,6 +247,8 @@ namespace NucleusAF.Photon.Controls
             {
                 case nameof(this.X):
                 case nameof(this.Y):
+                case nameof(this.HorizontalAlignment):
+                case nameof(this.VerticalAlignment):
                 case nameof(this.Margin):
                 case nameof(this.Padding):
                 case nameof(this.MinWidth):

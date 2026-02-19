@@ -1,4 +1,4 @@
-﻿namespace NucleusAF.Photon.Models
+﻿namespace PhotonUI.Models
 {
     public readonly struct Thickness(float left, float top, float right, float bottom)
     {
