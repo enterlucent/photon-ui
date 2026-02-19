@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<Company>Enterlucent</Company>
+		<Authors>Enterlucent</Authors>
+		<Product>PhotonUI Demo</Product>
+		<Description>Demonstration of PhotonUI</Description>
+		<Copyright>© 2026 Enterlucent</Copyright>
+
+		<AssemblyTitle>PhotonUI Demo</AssemblyTitle>
+		<AssemblyVersion>1.0.0.0</AssemblyVersion>
+		<FileVersion>1.0.0.0</FileVersion>
+		<InformationalVersion>1.0.0</InformationalVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Content Include="Assets\Images\photon.icon.png" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Include="Assets\Fonts\DejaVuSansMono-Bold.ttf" />
+		<EmbeddedResource Include="Assets\Fonts\DejaVuSansMono-BoldOblique.ttf" />
+		<EmbeddedResource Include="Assets\Fonts\DejaVuSansMono-Oblique.ttf" />
+		<EmbeddedResource Include="Assets\Fonts\DejaVuSansMono.ttf" />
+		<EmbeddedResource Include="Assets\Images\photon.icon.png" />
+		<EmbeddedResource Include="Assets\Images\sdl_logo.png" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!--Dependency Injection-->
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+	</ItemGroup>
+
+</Project>
