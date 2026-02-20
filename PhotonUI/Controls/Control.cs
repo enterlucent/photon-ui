@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using PhotonUI.Events;
 using PhotonUI.Events.Framework;
+using PhotonUI.Events.Platform;
 using PhotonUI.Exceptions;
 using PhotonUI.Interfaces;
 using PhotonUI.Models;
@@ -82,6 +83,12 @@ namespace PhotonUI.Controls
 
         public Action<FocusGainedEventArgs>? FocusGainedAction { get; set; }
         public Action<FocusLostEventArgs>? FocusLostAction { get; set; }
+
+        public Action<MouseEnterEventArgs>? MouseEnterAction { get; set; }
+        public Action<MouseExitEventArgs>? MouseExitAction { get; set; }
+
+        public Action<MouseClickEventArgs>? MouseClickAction { get; set; }
+        public Action<MouseWheelEventArgs>? MouseWheelAction { get; set; }
 
         #endregion
 
@@ -481,6 +488,22 @@ namespace PhotonUI.Controls
                 case FocusLostEventArgs focusLost:
                     this.IsFocused = false;
                     this.FocusLostAction?.Invoke(focusLost);
+                    break;
+
+                case MouseEnterEventArgs mouseEnter:
+                    this.MouseEnterAction?.Invoke(mouseEnter);
+                    break;
+
+                case MouseExitEventArgs mouseExit:
+                    this.MouseExitAction?.Invoke(mouseExit);
+                    break;
+
+                case MouseClickEventArgs mouseClick:
+                    this.MouseClickAction?.Invoke(mouseClick);
+                    break;
+
+                case MouseWheelEventArgs mouseWheel:
+                    this.MouseWheelAction?.Invoke(mouseWheel);
                     break;
             }
         }
