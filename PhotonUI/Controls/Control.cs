@@ -66,6 +66,10 @@ namespace PhotonUI.Controls
         public Action<Control>? ArrangedAction { get; set; }
         public Action<Control>? RenderedAction { get; set; }
 
+        public Action<Control>? TickAction { get; set; }
+        public Action<Control>? LateTickAction { get; set; }
+        public Action<Control>? PostTickAction { get; set; }
+
         #endregion
 
         #region Control: States
@@ -230,6 +234,40 @@ namespace PhotonUI.Controls
             });
         }
 
+        public virtual void FrameworkInitialize(Window window)
+        {
+            ArgumentNullException.ThrowIfNull(window);
+
+            if (!this.IsInitialized)
+            {
+                this.Window = window;
+                this.IsInitialized = true;
+
+                this.OnInitialize(window);
+
+                window.SetTabStop(this, this.TabIndex);
+
+                if (this.IsFocused)
+                    window.SetFocus(this);
+            }
+
+            this.TunnelControls(control =>
+            {
+                if (control != this)
+                    control.FrameworkInitialize(window);
+                return true;
+            });
+
+            this.InitializedAction?.Invoke(this);
+        }
+        public virtual void FrameworkTick(Window window) { }
+        public virtual void FrameworkIntrinsic(Window window, Size content) { }
+        public virtual void FrameworkMeasure(Window window) { }
+        public virtual void FrameworkArrange(Window window, SDL.FPoint anchor) { }
+        public virtual void FrameworkLateTick(Window window) { }
+        public virtual void FrameworkRender(Window window, SDL.Rect? clipRect) { }
+        public virtual void FrameworkPostTick(Window window) { }
+
         #endregion
 
         #region Control: Hooks
@@ -285,6 +323,14 @@ namespace PhotonUI.Controls
                 this.RequestRender(true);
         }
 
+        public virtual void OnInitialize(Window window) { }
+        public virtual void OnTick(Window window) { }
+        public virtual void OnMeasure(Window window) { }
+        public virtual void OnArrange(Window window, SDL.FPoint anchor) { }
+        public virtual void OnLateTick(Window window) { }
+        public virtual void OnRender(Window window, SDL.Rect? clipRect = null) { }
+        public virtual void OnPostTick(Window window) { }
+        
         public virtual void Dispose()
         {
             GC.SuppressFinalize(this);
