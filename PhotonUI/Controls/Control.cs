@@ -23,6 +23,13 @@ namespace PhotonUI.Controls
         protected readonly IServiceProvider ServiceProvider = serviceProvider;
 
         public Window? Window;
+        public Size IntrinsicSize;
+        public SDL.FRect DrawRect;
+
+        public virtual Thickness MarginExtent
+            => this.Margin;
+        public virtual Thickness PaddingExtent
+            => this.Padding;
 
         [ObservableProperty] private Control? parent = null;
         [ObservableProperty] private string name = typeof(Control).Name;
@@ -64,6 +71,7 @@ namespace PhotonUI.Controls
         #region Control: Actions
 
         public Action<Control>? InitializedAction { get; set; }
+        public Action<Control>? IntrinsicAction { get; set; }
         public Action<Control>? MeasuredAction { get; set; }
         public Action<Control>? ArrangedAction { get; set; }
         public Action<Control>? RenderedAction { get; set; }
@@ -82,7 +90,17 @@ namespace PhotonUI.Controls
         public bool IsOpaque => this.IsVisible && this.BackgroundColor.A == 255 && this.Opacity == 1f;
         public bool IsInteractable => this.IsEnabled && this.IsVisible && this.IsHitTestVisible;
 
+        public bool IsDescendant(Control child)
+        {
+            if (child == null) return false;
+
+            List<Control> path = Photon.GetControlPath(this, c => c == child);
+
+            return path.Count > 0;
+        }
+
         public bool IsInitialized { get; protected set; } = false;
+        public bool IsIntrinsicDirty { get; set; } = true;
         public bool IsMeasureDirty { get; set; } = true;
         public bool IsLayoutDirty { get; set; } = true;
         public bool IsRenderDirty { get; set; } = true;
@@ -210,11 +228,24 @@ namespace PhotonUI.Controls
 
         public virtual bool TunnelControls(Func<Control, bool> tunneler, TunnelDirection direction = TunnelDirection.TopDown)
             => tunneler(this);
+        public virtual bool BubbleControls(Func<Control, bool> bubbler)
+        {
+            if (!bubbler(this))
+                return false;
+
+            if (this.Parent != null)
+                return this.Parent.BubbleControls(bubbler);
+            else if (this is not Controls.Window)
+                throw new InvalidOperationException($"Control {this.Name} has no parent but is not a Window. Bubble chain broken.");
+
+            return true;
+        }
 
         public virtual void RequestMeasure()
         {
             this.TunnelControls(control =>
             {
+                control.IsIntrinsicDirty = true;
                 control.IsMeasureDirty = true;
                 return true;
             });
@@ -231,10 +262,30 @@ namespace PhotonUI.Controls
         {
             this.IsRenderDirty = true;
 
+            if (invalidate)
+                Photon.InvalidateRenderChain(this);
+
             this.TunnelControls(control =>
             {
                 if (control != this)
                     control.RequestRender(false);
+                return true;
+            });
+        }
+
+        public virtual void FrameworkEventBubble(Window window, FrameworkEventArgs e)
+        {
+            if (!this.IsInitialized)
+                return;
+
+            this.OnEvent(window, e);
+
+            this.BubbleControls(control =>
+            {
+                if (!control.IsInitialized)
+                    return true;
+
+                control.OnEvent(window, e);
                 return true;
             });
         }
@@ -266,11 +317,41 @@ namespace PhotonUI.Controls
             this.InitializedAction?.Invoke(this);
         }
         public virtual void FrameworkTick(Window window) { }
-        public virtual void FrameworkIntrinsic(Window window, Size content) { }
+        public virtual void FrameworkIntrinsic(Window window, Size content)
+        {
+            // Set the intrinsic size to the minimum size for this control
+            this.IntrinsicSize = Photon.GetMinimumSize(this);
+        }
         public virtual void FrameworkMeasure(Window window) { }
-        public virtual void FrameworkArrange(Window window, SDL.FPoint anchor) { }
+        public virtual void FrameworkArrange(Window window, SDL.FPoint anchor)
+        {
+            // Update our location by extending to the margins
+            this.DrawRect.X = anchor.X + this.MarginExtent.Left + this.X;
+            this.DrawRect.Y = anchor.Y + this.MarginExtent.Top + this.Y;
+        }
         public virtual void FrameworkLateTick(Window window) { }
-        public virtual void FrameworkRender(Window window, SDL.Rect? clipRect) { }
+        public virtual void FrameworkRender(Window window, SDL.Rect? clipRect)
+        {
+            // Skip rendering if control is not visible
+            if (this.IsVisible)
+            {
+                // Calculate the effective clip area based on the control's draw rect
+                Photon.GetControlClipRect(this.DrawRect, this.ClipToBounds, clipRect, out SDL.Rect? effectiveClipRect);
+
+                // Render only if the control is within the clip region or unclipped
+                if (effectiveClipRect.HasValue)
+                {
+                    // Apply the effective clip region
+                    Photon.ApplyControlClipRect(window, effectiveClipRect);
+
+                    // Draw the control's background
+                    Photon.DrawControlBackground(this);
+
+                    // Restore the original clip region
+                    Photon.ApplyControlClipRect(window, clipRect);
+                }
+            }
+        }
         public virtual void FrameworkPostTick(Window window) { }
 
         #endregion
@@ -326,15 +407,66 @@ namespace PhotonUI.Controls
 
             if (invalidateRender)
                 this.RequestRender(true);
+
+            this.FrameworkEventBubble(this.Window, new ChildPropertyChangedEventArgs(this, e));
         }
 
         public virtual void OnInitialize(Window window) { }
-        public virtual void OnTick(Window window) { }
-        public virtual void OnMeasure(Window window) { }
-        public virtual void OnArrange(Window window, SDL.FPoint anchor) { }
-        public virtual void OnLateTick(Window window) { }
-        public virtual void OnRender(Window window, SDL.Rect? clipRect = null) { }
-        public virtual void OnPostTick(Window window) { }
+        public virtual void OnTick(Window window)
+        {
+            this.FrameworkTick(window);
+            this.TickAction?.Invoke(this);
+        }
+        public virtual void OnIntrinsic(Window window, Size content)
+        {
+            if (this.IsIntrinsicDirty)
+            {
+                this.FrameworkIntrinsic(window, content);
+
+                this.IntrinsicAction?.Invoke(this);
+                this.IsIntrinsicDirty = false;
+            }
+        }
+        public virtual void OnMeasure(Window window)
+        {
+            if (this.IsMeasureDirty)
+            {
+                this.FrameworkMeasure(window);
+
+                this.MeasuredAction?.Invoke(this);
+                this.IsMeasureDirty = false;
+            }
+        }
+        public virtual void OnArrange(Window window, SDL.FPoint anchor)
+        {
+            if (this.IsLayoutDirty)
+            {
+                this.FrameworkArrange(window, anchor);
+
+                this.ArrangedAction?.Invoke(this);
+                this.IsLayoutDirty = false;
+            }
+        }
+        public virtual void OnLateTick(Window window)
+        {
+            this.FrameworkLateTick(window);
+            this.LateTickAction?.Invoke(this);
+        }
+        public virtual void OnRender(Window window, SDL.Rect? clipRect = null)
+        {
+            if (this.IsRenderDirty)
+            {
+                this.FrameworkRender(window, clipRect);
+
+                this.RenderedAction?.Invoke(this);
+                this.IsRenderDirty = false;
+            }
+        }
+        public virtual void OnPostTick(Window window)
+        {
+            this.FrameworkPostTick(window);
+            this.PostTickAction?.Invoke(this);
+        }
         public virtual void OnEvent(Window window, FrameworkEventArgs e)
         {
             if (e.Handled || e.Preview) return;
