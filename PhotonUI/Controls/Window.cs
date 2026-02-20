@@ -1,5 +1,7 @@
-﻿using PhotonUI.Events.Framework;
+﻿using PhotonUI.Events;
+using PhotonUI.Events.Framework;
 using PhotonUI.Events.Platform;
+using PhotonUI.Extensions;
 using SDL3;
 
 namespace PhotonUI.Controls
@@ -42,6 +44,60 @@ namespace PhotonUI.Controls
         #endregion
 
         #region Window: External
+
+        public virtual void Initialize()
+            => this.FrameworkInitialize(this);
+        public virtual void Tick()
+        {
+            this.ApplyTick();
+            this.ApplyIntrinsicRequests();
+            this.ApplyMeasureRequests();
+            this.ApplyArrangeRequests();
+            this.ApplyLateTick();
+
+            if (this.NeedsRendering())
+            {
+                this.ApplyClearRequests();
+                this.ApplyRenderRequests();
+
+                SDL.SetTextureBlendMode(this.BackTexture, SDL.BlendMode.Blend);
+                SDL.SetRenderDrawColor(this.Renderer, 0, 0, 0, 0);
+
+                SDL.RenderClear(this.Renderer);
+                SDL.RenderTexture(this.Renderer, this.BackTexture, IntPtr.Zero, IntPtr.Zero);
+                SDL.RenderPresent(this.Renderer);
+            }
+
+            this.ApplyPostTick();
+        }
+        public virtual void Event(SDL.Event e)
+        {
+            SDL.EventType eventType = (SDL.EventType)e.Type;
+
+            switch (eventType)
+            {
+                case SDL.EventType.MouseMotion:
+                    this.MouseMotionHandler(this, e);
+                    this.GetMouseFocus(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
+                    return;
+
+                case SDL.EventType.MouseButtonDown:
+                case SDL.EventType.MouseButtonUp:
+                    this.MouseButtonHandler(this, e);
+                    this.GetMouseFocus(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
+                    return;
+
+                case SDL.EventType.MouseWheel:
+                    this.MouseWheelHandler(this, e);
+                    this.GetMouseFocus(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
+                    return;
+
+                case SDL.EventType.TextInput:
+                    break;
+            }
+
+            this.KeyboardInputTarget.OnEvent(this, new PlatformEventArgs(e));
+        }
 
         protected virtual void AdvanceTabFocus(int direction)
         {
@@ -158,6 +214,27 @@ namespace PhotonUI.Controls
                     this.TabStopIndex = idx;
             }
         }
+        public virtual void SetWindowSize(int width, int height)
+        {
+            if (this.BackTexture != IntPtr.Zero)
+            {
+                SDL.DestroyTexture(this.BackTexture);
+
+                this.WindowBackTexture = IntPtr.Zero;
+            }
+
+            this.IntrinsicSize = new() { Width = width, Height = height };
+            this.DrawRect = new() { X = 0, Y = 0, W = width, H = height };
+
+            this.WindowBackTexture = SDL.CreateTexture(this.Renderer, SDL.PixelFormat.RGBA8888, SDL.TextureAccess.Target, width, height);
+
+            if (this.BackTexture == IntPtr.Zero)
+                throw new InvalidOperationException("Failed to create back texture for window resize.");
+
+            this.RequestMeasure();
+            this.RequestArrange();
+            this.RequestRender();
+        }
         public virtual void SetTabStop(Control control, int stop)
         {
             ArgumentNullException.ThrowIfNull(control);
@@ -200,6 +277,23 @@ namespace PhotonUI.Controls
             else
                 this.TabStopIndex = -1;
         }
+        public virtual void SetRenderer(IntPtr renderer)
+        {
+            if (this.Renderer == renderer)
+                return;
+
+            if (this.BackTexture != IntPtr.Zero)
+            {
+                SDL.DestroyTexture(this.BackTexture);
+
+                this.WindowBackTexture = IntPtr.Zero;
+            }
+
+            this.Renderer = renderer;
+
+            this.SetWindowSize((int)this.DrawRect.W, (int)this.DrawRect.H);
+        }
+
         public virtual void CaptureMouse(Control control)
         {
             ArgumentNullException.ThrowIfNull(control, nameof(control));
@@ -240,6 +334,190 @@ namespace PhotonUI.Controls
             this.KeyboardCapturedControl = null;
 
             released.OnEvent(this, new KeyboardReleased(this, released));
+        }
+
+        #endregion
+
+        #region Window: Traversal
+
+        protected bool NeedsRendering()
+        {
+            bool needsRender = false;
+
+            this.TunnelControls((c) =>
+            {
+                if (c.IsRenderDirty)
+                {
+                    needsRender = true;
+
+                    return false;
+                }
+                return true;
+            });
+
+            return needsRender;
+        }
+
+        protected void ApplyTick()
+        {
+            if (this.Child == null) return;
+
+            this.Child.TunnelControls((c) =>
+            {
+                if (c.Window == null)
+                    throw new InvalidOperationException($"The control {c.Name} of type {c.GetType().Name} has no window");
+
+                c.OnTick(c.Window);
+                c.TickAction?.Invoke(c);
+
+                return true;
+            });
+        }
+        protected void ApplyIntrinsicRequests()
+        {
+            this.TunnelControls(control =>
+            {
+                if (control.IsIntrinsicDirty)
+                {
+                    if (control == this)
+                    {
+                        control.OnIntrinsic(this, this.IntrinsicSize);
+                    }
+                    else
+                    {
+                        if (control.Parent == null)
+                            throw new NullReferenceException($"Broken Branch: Child {control.Name}:{control.GetType()} has no parent");
+
+                        control.OnIntrinsic(this, control.IntrinsicSize);
+                    }
+                }
+                return true;
+            });
+        }
+        protected void ApplyMeasureRequests()
+        {
+            this.TunnelControls(control =>
+            {
+                if (control.IsMeasureDirty)
+                {
+                    if (control == this)
+                    {
+                        control.OnMeasure(this);
+                    }
+                    else
+                    {
+                        if (control.Parent == null)
+                            throw new NullReferenceException($"Broken Branch: Child {control.Name}:{control.GetType()} has no parent");
+
+                        control.OnMeasure(this);
+                    }
+                }
+                return true;
+            });
+        }
+        protected void ApplyArrangeRequests()
+        {
+            this.TunnelControls(control =>
+            {
+                if (control.IsLayoutDirty)
+                {
+                    if (control == this)
+                    {
+                        control.OnArrange(this, default);
+                    }
+                    else
+                    {
+                        if (control.Parent == null)
+                            throw new NullReferenceException($"Broken Branch: Child {control.Name}:{control.GetType()} has no parent");
+
+                        SDL.FRect contentRect = control.Parent.DrawRect.Deflate(control.Parent.PaddingExtent);
+
+                        SDL.FPoint anchor = new() { X = contentRect.X, Y = contentRect.Y };
+
+                        control.OnArrange(this, anchor);
+                    }
+                }
+                return true;
+            });
+        }
+        protected void ApplyLateTick()
+        {
+            if (this.Child == null) return;
+
+            this.Child.TunnelControls((c) =>
+            {
+                if (c.Window == null)
+                    throw new InvalidOperationException($"The control {c.Name} of type {c.GetType().Name} has no window");
+
+                c.OnLateTick(c.Window);
+                c.LateTickAction?.Invoke(c);
+
+                return true;
+            });
+        }
+        protected void ApplyRenderRequests()
+        {
+            this.TunnelControls(control =>
+            {
+                if (control.IsRenderDirty)
+                {
+                    if (control == this)
+                    {
+                        SDL.Rect clipRect = this.DrawRect.ToRect();
+
+                        this.OnRender(this, clipRect);
+                    }
+                    else
+                    {
+                        if (control.Parent == null)
+                            throw new NullReferenceException($"Broken Branch: Child {control.Name}:{control.GetType()} has no parent");
+
+                        SDL.FRect contentRect = control.Parent.DrawRect.Deflate(control.Parent.PaddingExtent);
+
+                        SDL.Rect clipRect = contentRect.ToRect();
+
+                        control.OnRender(this, clipRect);
+                    }
+                }
+
+                return true;
+            });
+        }
+        protected void ApplyPostTick()
+        {
+            if (this.Child == null) return;
+
+            this.Child.TunnelControls((c) =>
+            {
+                if (c.Window == null)
+                    throw new InvalidOperationException($"The control {c.Name} of type {c.GetType().Name} has no window");
+
+                c.OnPostTick(c.Window);
+                c.PostTickAction?.Invoke(c);
+
+                return true;
+            });
+        }
+        protected void ApplyClearRequests()
+        {
+            if (this.Child == null) return;
+
+            this.Child.TunnelControls((Func<Control, bool>)((c) =>
+            {
+                if (c.IsBoundryDirty)
+                {
+                    if (c.Window == null)
+                        throw new InvalidOperationException($"The control {c.Name} of type {c.GetType().Name} has no window");
+
+                    SDL.FRect renderRect = FRect.Deflate(c.DrawRect, c.Margin);
+
+                    Photon.ClearRectangle(c.Window, renderRect, c.Window.BackTexture, default);
+
+                    c.IsBoundryDirty = false;
+                    c.IsRenderDirty = true;
+                }
+                return true;
+            }));
         }
 
         #endregion
@@ -332,6 +610,36 @@ namespace PhotonUI.Controls
 
                 target.FrameworkEventBubble(window, bubbleArgs);
             }
+        }
+
+        public override void FrameworkInitialize(Window window)
+        {
+            if (window.IsInitialized == true) return;
+
+            //TODO: This needs to be replaced with argumentation or assume this is setup before hand.
+            window.Handle = SDL.CreateWindow("PhotonUI :: Demo", 800, 600, SDL.WindowFlags.Resizable);
+
+            window.Renderer = SDL.CreateRenderer(window.Handle, null);
+
+            if (window.Renderer == IntPtr.Zero)
+            {
+                SDL.DestroyWindow(window.Handle);
+                SDL.Quit();
+
+                return;
+            }
+
+            SDL.GetWindowSize(window.Handle, out int width, out int height);
+
+            window.SetWindowSize(width, height);
+
+            window.Name = window.Name;
+            window.Window = window;
+            window.HorizontalAlignment = Models.Properties.HorizontalAlignment.Stretch;
+            window.VerticalAlignment = Models.Properties.VerticalAlignment.Stretch;
+            window.IsInitialized = true;
+
+            window.Child?.FrameworkInitialize(window);
         }
 
         #endregion
