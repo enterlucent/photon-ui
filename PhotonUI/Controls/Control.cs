@@ -1,4 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using PhotonUI.Events;
+using PhotonUI.Events.Framework;
 using PhotonUI.Exceptions;
 using PhotonUI.Interfaces;
 using PhotonUI.Models;
@@ -69,6 +71,9 @@ namespace PhotonUI.Controls
         public Action<Control>? TickAction { get; set; }
         public Action<Control>? LateTickAction { get; set; }
         public Action<Control>? PostTickAction { get; set; }
+
+        public Action<FocusGainedEventArgs>? FocusGainedAction { get; set; }
+        public Action<FocusLostEventArgs>? FocusLostAction { get; set; }
 
         #endregion
 
@@ -330,7 +335,24 @@ namespace PhotonUI.Controls
         public virtual void OnLateTick(Window window) { }
         public virtual void OnRender(Window window, SDL.Rect? clipRect = null) { }
         public virtual void OnPostTick(Window window) { }
-        
+        public virtual void OnEvent(Window window, FrameworkEventArgs e)
+        {
+            if (e.Handled || e.Preview) return;
+
+            switch (e)
+            {
+                case FocusGainedEventArgs focusGained:
+                    this.IsFocused = true;
+                    this.FocusGainedAction?.Invoke(focusGained);
+                    break;
+
+                case FocusLostEventArgs focusLost:
+                    this.IsFocused = false;
+                    this.FocusLostAction?.Invoke(focusLost);
+                    break;
+            }
+        }
+
         public virtual void Dispose()
         {
             GC.SuppressFinalize(this);

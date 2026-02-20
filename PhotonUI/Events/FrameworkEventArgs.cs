@@ -1,4 +1,4 @@
-﻿namespace NucleusAF.Photon.Events
+﻿namespace PhotonUI.Events
 {
     public class FrameworkEventArgs : EventArgs
     {

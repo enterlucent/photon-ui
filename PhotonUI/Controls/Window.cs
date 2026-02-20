@@ -1,5 +1,5 @@
-﻿using SDL3;
-using System.Linq.Expressions;
+﻿using PhotonUI.Events.Framework;
+using SDL3;
 
 namespace PhotonUI.Controls
 {
@@ -125,7 +125,9 @@ namespace PhotonUI.Controls
         {
             if (this.FocusedControl == control) return;
 
+            this.FocusedControl?.OnEvent(this, new FocusLostEventArgs(this.FocusedControl));
             this.FocusedControl = control;
+            this.FocusedControl?.OnEvent(this, new FocusGainedEventArgs(this.FocusedControl));
 
             if (control != null)
             {

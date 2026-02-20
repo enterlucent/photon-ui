@@ -1,6 +1,6 @@
 ﻿using SDL3;
 
-namespace NucleusAF.Photon.Events
+namespace PhotonUI.Events
 {
     public class PlatformEventArgs(SDL.Event nativeEvent)
         : FrameworkEventArgs
