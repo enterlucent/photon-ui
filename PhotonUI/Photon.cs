@@ -168,6 +168,54 @@ namespace PhotonUI
             return new Size { Width = width, Height = height };
         }
 
+        public static float GetStretchedWidth(HorizontalAlignment alignment, float width, float available, float offsetX = 0)
+        {
+            if (alignment != HorizontalAlignment.Stretch)
+                return width;
+
+            float usable = available - offsetX;
+            if (usable >= width)
+                return usable;
+
+            return width;
+        }
+        public static float GetStretchedHeight(VerticalAlignment alignment, float height, float available, float offsetY = 0)
+        {
+            if (alignment != VerticalAlignment.Stretch)
+                return height;
+
+            float usable = available - offsetY;
+            if (usable >= height)
+                return usable;
+
+            return height;
+        }
+
+        public static float GetHorizontalAlignment(HorizontalAlignment alignment, float intial, float width, float availableWidth)
+        {
+            switch (alignment)
+            {
+                case HorizontalAlignment.Center:
+                    return intial + (availableWidth - width) / 2;
+                case HorizontalAlignment.Right:
+                    return intial + (availableWidth - width);
+                default:
+                    return intial;
+            }
+        }
+        public static float GetVerticalAlignment(VerticalAlignment alignment, float intial, float height, float availableHeight)
+        {
+            switch (alignment)
+            {
+                case VerticalAlignment.Center:
+                    return intial + (availableHeight - height) / 2;
+                case VerticalAlignment.Bottom:
+                    return intial + (availableHeight - height);
+                default:
+                    return intial;
+            }
+        }
+
         #endregion
 
         #region Photon: Clip Management Helpers
