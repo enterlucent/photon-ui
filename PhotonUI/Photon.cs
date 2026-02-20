@@ -62,6 +62,93 @@ namespace PhotonUI
 
             return path;
         }
+        public static int GetControlDepth(Control c)
+        {
+            int depth = 0;
+            Control? parent = c.Parent;
+
+            while (parent != null)
+            {
+                depth++;
+
+                parent = parent.Parent;
+            }
+
+            return depth;
+        }
+        public static List<Control> GetAncestors(Control c)
+        {
+            List<Control> list = [];
+            Control? current = c;
+
+            while (current != null)
+            {
+                list.Insert(0, current);
+
+                current = current.Parent;
+            }
+
+            return list;
+        }
+        public static string GetAncestorPath(Control c)
+            => string.Join("/", GetAncestors(c).Select(a => a.Name));
+
+        public static bool HitTest(SDL.FRect bounds, float px, float py)
+        {
+            return px >= bounds.X && px < bounds.X + bounds.W &&
+                   py >= bounds.Y && py < bounds.Y + bounds.H;
+        }
+        public static bool AncestorHitTest(Control control, float px, float py)
+        {
+            Control? parent = control.Parent;
+
+            while (parent != null)
+            {
+                if (parent is Window) break;
+
+                if (!HitTest(parent.DrawRect, px, py))
+                    return false;
+
+                parent = parent.Parent;
+            }
+
+            return true;
+        }
+
+        public static List<Control> GetHitControls(Window window, float px, float py)
+        {
+            List<Control> hits = [];
+
+            window.TunnelControls((Func<Control, bool>)(c =>
+            {
+                if (c.IsVisible && c.IsHitTestVisible)
+                    if (HitTest((SDL.FRect)c.DrawRect, px, py))
+                        hits.Add(c);
+
+                return true;
+            }));
+
+            return hits;
+        }
+        public static Control? ResolveHitControl(Window window, float px, float py)
+        {
+            List<Control> hits = GetHitControls(window, px, py);
+
+            if (hits == null || hits.Count == 0)
+                return null;
+
+            IOrderedEnumerable<Control> ordered = hits
+                .Where(c => c.IsVisible && c.IsHitTestVisible)
+                .OrderByDescending(GetAncestorPath)
+                .ThenByDescending(c => c.ZIndex)
+                .ThenByDescending(GetControlDepth);
+
+            foreach (Control control in ordered)
+                if (AncestorHitTest(control, px, py))
+                    return control;
+
+            return null;
+        }
 
         #endregion
 
@@ -130,6 +217,24 @@ namespace PhotonUI
 
         #region Photon: Drawing Helpers
 
+        public static void ClearRectangle(Window window, SDL.FRect rect, IntPtr target, SDL.Color baseColor = new SDL.Color())
+        {
+            IntPtr previousTarget = SDL.GetRenderTarget(window.Renderer);
+
+            if (target != IntPtr.Zero)
+                SDL.SetRenderTarget(window.Renderer, target);
+
+            SDL.GetRenderDrawBlendMode(window.Renderer, out SDL.BlendMode prevBlend);
+
+            SDL.SetRenderDrawBlendMode(window.Renderer, SDL.BlendMode.None);
+            SDL.SetRenderDrawColor(window.Renderer, baseColor.R, baseColor.G, baseColor.B, baseColor.A);
+            SDL.RenderFillRect(window.Renderer, rect);
+
+            SDL.SetRenderDrawBlendMode(window.Renderer, prevBlend);
+
+            if (target != IntPtr.Zero)
+                SDL.SetRenderTarget(window.Renderer, previousTarget);
+        }
         public static void DrawRectangle(Window window, SDL.FRect rect, SDL.Color color, IntPtr target)
         {
             if (color.A < 1) return;

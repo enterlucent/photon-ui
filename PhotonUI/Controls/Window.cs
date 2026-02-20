@@ -1,4 +1,5 @@
 ﻿using PhotonUI.Events.Framework;
+using PhotonUI.Events.Platform;
 using SDL3;
 
 namespace PhotonUI.Controls
@@ -11,6 +12,9 @@ namespace PhotonUI.Controls
         protected IntPtr WindowBackTexture;
 
         protected Control? FocusedControl;
+        protected Control? HoveredControl;
+        protected Control? KeyboardCapturedControl;
+        protected Control? MouseCapturedControl;
 
         protected readonly List<WindowTabStopEntry> TabStops = [];
         protected int TabStopIndex = -1;
@@ -21,6 +25,14 @@ namespace PhotonUI.Controls
         public IntPtr BackTexture => this.WindowBackTexture;
 
         public Control? Focused => this.FocusedControl;
+        public Control? Hovered => this.HoveredControl;
+        public Control? CapturedMouse => this.MouseCapturedControl;
+        public Control? CapturedKeyboard => this.KeyboardCapturedControl;
+
+        public Control KeyboardInputTarget =>
+            this.KeyboardCapturedControl ??
+            this.FocusedControl ??
+            this;
 
         #region Window: Platform
 
@@ -116,6 +128,15 @@ namespace PhotonUI.Controls
                 { try { SDL.Free(surface); } catch { } }
             }
         }
+        public Control GetMouseFocus(SDL.MouseMotionEvent motion)
+        {
+            Control? c = Photon.ResolveHitControl(this, motion.X, motion.Y);
+
+            return this.MouseCapturedControl ??
+                this.HoveredControl ??
+                c ??
+                this;
+        }
 
         #endregion
 
@@ -178,6 +199,139 @@ namespace PhotonUI.Controls
                 this.TabStopIndex = this.TabStops.Count - 1;
             else
                 this.TabStopIndex = -1;
+        }
+        public virtual void CaptureMouse(Control control)
+        {
+            ArgumentNullException.ThrowIfNull(control, nameof(control));
+
+            this.ReleaseMouse();
+
+            this.MouseCapturedControl = control;
+
+            control.OnEvent(this, new MouseCaptured(this, control));
+        }
+        public virtual void ReleaseMouse()
+        {
+            if (this.MouseCapturedControl == null) return;
+
+            Control released = this.MouseCapturedControl;
+
+            this.MouseCapturedControl = null;
+
+            released.OnEvent(this, new MouseReleased(this, released));
+        }
+
+        public virtual void CaptureKeyboard(Control control)
+        {
+            ArgumentNullException.ThrowIfNull(control, nameof(control));
+
+            this.ReleaseKeyboard();
+
+            this.KeyboardCapturedControl = control;
+
+            control.OnEvent(this, new KeyboardCaptured(this, control));
+        }
+        public virtual void ReleaseKeyboard()
+        {
+            if (this.KeyboardCapturedControl == null) return;
+
+            Control released = this.KeyboardCapturedControl;
+
+            this.KeyboardCapturedControl = null;
+
+            released.OnEvent(this, new KeyboardReleased(this, released));
+        }
+
+        #endregion
+
+        #region Window: Framework
+
+        protected virtual void MouseMotionHandler(Window window, SDL.Event e)
+        {
+            if (e.Type != (uint)SDL.EventType.MouseMotion)
+                return;
+
+            SDL.MouseMotionEvent motion = e.Motion;
+
+            Control? target = Photon.ResolveHitControl(window, motion.X, motion.Y);
+
+            this.HoveredControl?.OnEvent(this, new FocusLostEventArgs(this.HoveredControl));
+            this.HoveredControl = null;
+
+            List<Control> currentPath = target != null ? Photon.GetAncestors(target) : [];
+
+            bool focusSet = false;
+
+            for (int i = currentPath.Count - 1; i >= 0; i--)
+            {
+                Control control = currentPath[i];
+
+                if (control.FocusOnHover == true && !focusSet)
+                {
+                    this.HoveredControl = control;
+                    this.HoveredControl.OnEvent(this, new FocusGainedEventArgs(this.HoveredControl));
+
+                    focusSet = true;
+                }
+            }
+
+            foreach (Control? entered in currentPath.Except(this.PreviousHoverPath))
+                entered?.OnEvent(window, new MouseEnterEventArgs(window, entered, e));
+
+            foreach (Control? exited in this.PreviousHoverPath.Except(currentPath))
+                exited?.OnEvent(window, new MouseExitEventArgs(window, exited, e));
+
+            this.PreviousHoverPath = currentPath;
+        }
+        protected virtual void MouseButtonHandler(Window window, SDL.Event e)
+        {
+            if (e.Type != (uint)SDL.EventType.MouseButtonDown &&
+                e.Type != (uint)SDL.EventType.MouseButtonUp)
+                return;
+
+            Control target = this.GetMouseFocus(e.Motion);
+
+            List<Control>? path = Photon.GetControlPath(window, c => c == target);
+
+            if (target != null && path != null)
+            {
+                // Preview phase
+                MouseClickEventArgs previewArgs = new(window, target, e)
+                {
+                    Preview = true
+                };
+                foreach (Control control in path)
+                    control?.OnEvent(window, previewArgs);
+
+                // Bubble phase
+                MouseClickEventArgs bubbleArgs = new(window, target, e);
+                target.FrameworkEventBubble(window, bubbleArgs);
+            }
+        }
+        protected virtual void MouseWheelHandler(Window window, SDL.Event e)
+        {
+            if (e.Type != (uint)SDL.EventType.MouseWheel)
+                return;
+
+            Control target = this.GetMouseFocus(e.Motion);
+
+            List<Control>? path = Photon.GetControlPath(window, c => c == target);
+
+            if (target != null && path != null)
+            {
+                // Preview phase
+                MouseWheelEventArgs previewArgs = new(window, target, e)
+                {
+                    Preview = true
+                };
+                foreach (Control control in path)
+                    control?.OnEvent(window, previewArgs);
+
+                // Bubble phase
+                MouseWheelEventArgs bubbleArgs = new(window, target, e);
+
+                target.FrameworkEventBubble(window, bubbleArgs);
+            }
         }
 
         #endregion
