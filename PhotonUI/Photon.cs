@@ -661,6 +661,97 @@ namespace PhotonUI
             return result;
         }
 
+        public static IntPtr CreateTextureFromSurface(Window window, IntPtr surface)
+        {
+            IntPtr tex = SDL.CreateTextureFromSurface(window.Renderer, surface);
+
+            SDL.DestroySurface(surface);
+
+            if (tex == IntPtr.Zero)
+                throw new InvalidOperationException($"SDL.CreateTextureFromSurface failed: {SDL.GetError()}");
+
+            return tex;
+        }
+        public static IntPtr CompositeTextures(Window window, IntPtr texA, IntPtr texB, int offsetX, int offsetY)
+        {
+            SDL.GetTextureSize(texB, out float w, out float h);
+
+            int fullW = (int)(w + offsetX * 2);
+            int fullH = (int)(h + offsetY * 2);
+
+            IntPtr target = SDL.CreateTexture(
+                window.Renderer,
+                SDL.PixelFormat.RGBA8888,
+                SDL.TextureAccess.Target,
+                fullW,
+                fullH);
+
+            if (target == IntPtr.Zero)
+                throw new InvalidOperationException($"SDL.CreateTexture failed: {SDL.GetError()}");
+
+            IntPtr previousTarget = SDL.GetRenderTarget(window.Renderer);
+
+            SDL.SetTextureBlendMode(target, SDL.BlendMode.Blend);
+            SDL.SetTextureBlendMode(texA, SDL.BlendMode.Blend);
+            SDL.SetTextureBlendMode(texB, SDL.BlendMode.Blend);
+
+            SDL.SetRenderTarget(window.Renderer, target);
+            SDL.SetRenderDrawColor(window.Renderer, 0, 0, 0, 0);
+            SDL.RenderClear(window.Renderer);
+
+            SDL.FRect dstA = new() { X = 0, Y = 0, W = fullW, H = fullH };
+            SDL.RenderTexture(window.Renderer, texA, IntPtr.Zero, dstA);
+
+            SDL.FRect dstB = new() { X = offsetX, Y = offsetY, W = w, H = h };
+            SDL.RenderTexture(window.Renderer, texB, IntPtr.Zero, dstB);
+
+            SDL.SetRenderTarget(window.Renderer, previousTarget);
+
+            return target;
+        }
+        public static IntPtr CropTexture(Window window, IntPtr sourceTexture, SDL.FRect cropRect)
+        {
+            if (sourceTexture == IntPtr.Zero)
+                return IntPtr.Zero;
+
+            SDL.GetTextureSize(sourceTexture, out float texW, out float texH);
+
+            if (cropRect.X >= texW || cropRect.Y >= texH || cropRect.W <= 0 || cropRect.H <= 0)
+                return IntPtr.Zero;
+
+            if (cropRect.X <= 0 && cropRect.Y <= 0 && cropRect.W >= texW && cropRect.H >= texH)
+                return IntPtr.Zero;
+
+            cropRect.X = Math.Clamp(cropRect.X, 0, texW);
+            cropRect.Y = Math.Clamp(cropRect.Y, 0, texH);
+            cropRect.W = Math.Min(cropRect.W, texW - cropRect.X);
+            cropRect.H = Math.Min(cropRect.H, texH - cropRect.Y);
+
+            IntPtr croppedTexture = SDL.CreateTexture(
+                window.Renderer,
+                SDL.PixelFormat.RGBA8888,
+                SDL.TextureAccess.Target,
+                (int)cropRect.W,
+                (int)cropRect.H);
+
+            if (croppedTexture == IntPtr.Zero)
+                throw new InvalidOperationException($"SDL.CreateTexture (croppedTexture) failed: {SDL.GetError()}");
+
+            IntPtr previousTarget = SDL.GetRenderTarget(window.Renderer);
+            SDL.SetTextureBlendMode(croppedTexture, SDL.BlendMode.Blend);
+
+            SDL.SetRenderTarget(window.Renderer, croppedTexture);
+            SDL.SetRenderDrawColor(window.Renderer, 0, 0, 0, 0);
+            SDL.RenderClear(window.Renderer);
+
+            SDL.FRect dst = new() { X = 0, Y = 0, W = cropRect.W, H = cropRect.H };
+            SDL.RenderTexture(window.Renderer, sourceTexture, cropRect, dst);
+
+            SDL.SetRenderTarget(window.Renderer, previousTarget);
+
+            return croppedTexture;
+        }
+
         #endregion
 
         #region Photon: Control Drawing Helpers
@@ -762,6 +853,273 @@ namespace PhotonUI
             DrawTextureRotated(control.Window!, texture, sourceRect, destination, angle, center, flip, control.Window!.BackTexture, clipRect);
 
             SDL.SetTextureAlphaMod(texture, originalAlpha);
+        }
+
+        #endregion
+
+        #region Photon: Font Helpers
+
+        public static float GetControlLinePixelHeight(IList<TextControlLineData> lines, int start = 0, int? end = null)
+        {
+            if (lines == null || lines.Count == 0) return 0f;
+
+            int actualEnd = end ?? lines.Count;
+
+            if (actualEnd > lines.Count) actualEnd = lines.Count;
+            if (start < 0) start = 0;
+
+            float sum = 0f;
+
+            for (int i = start; i < actualEnd; i++)
+            {
+                sum += lines[i].PixelHeight;
+            }
+
+            return sum;
+        }
+        public static float GetControlLineMaxPixelWidth(IList<TextControlLineData> lines, int start = 0, int? end = null)
+        {
+            if (lines == null || lines.Count == 0) return 0f;
+
+            int actualEnd = end ?? lines.Count;
+
+            if (actualEnd > lines.Count) actualEnd = lines.Count;
+            if (start < 0) start = 0;
+
+            float maxWidth = 0f;
+
+            for (int i = start; i < actualEnd; i++)
+            {
+                float w = lines[i].PixelWidth;
+
+                if (w > maxWidth)
+                    maxWidth = w;
+            }
+
+            return maxWidth;
+        }
+
+        public static int GetIndexFromPixelHeight(List<TextControlLineData> lines, float pixelHeight)
+        {
+            if (pixelHeight < 0) return 0;
+
+            float acc = 0f;
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                float next = acc + lines[i].PixelHeight;
+
+                if (pixelHeight < next) return i;
+
+                acc = next;
+            }
+
+            return lines.Count - 1;
+        }
+
+        public static int FindCharCountWithinPixelWidth(IntPtr font, string text, int startIndex, int pixelWidth, FontMetrics metrics)
+        {
+            if (string.IsNullOrEmpty(text) || font == IntPtr.Zero)
+                return 0;
+
+            string slice = text[startIndex..];
+
+            if (metrics.MeasureString(font, slice, (uint)slice.Length, pixelWidth, out int _, out ulong measuredLength))
+                return (int)measuredLength;
+
+            return text.Length - startIndex;
+        }
+        public static int FindWordBoundaryWrap(IntPtr font, string text, int startIndex, int pixelWidth, FontMetrics metrics)
+        {
+            if (startIndex >= text.Length) return text.Length;
+
+            string slice = text[startIndex..];
+            if (metrics.MeasureString(font, slice, (uint)slice.Length, pixelWidth, out int _, out ulong measuredLength))
+            {
+                int fitCount = (int)Math.Min(measuredLength, (ulong)slice.Length);
+
+                // Binary search for exact fit point
+                int left = 0, right = fitCount;
+                while (left < right)
+                {
+                    int mid = (left + right + 1) / 2;
+                    Size size = metrics.MeasureString(font, slice[0..mid]);
+                    if (size.Width <= pixelWidth) left = mid;
+                    else right = mid - 1;
+                }
+
+                fitCount = left;
+
+                // Find last space within safe fit
+                int lastSpace = slice[0..fitCount].LastIndexOf(' ');
+                return lastSpace != -1 ? startIndex + lastSpace + 1 : startIndex + fitCount;
+            }
+            return startIndex;
+        }
+        public static List<TextControlLineData> GetTextControlData(IntPtr font, string text, TextControlWrapType wrapType, int wrapWidth, FontMetrics metrics)
+        {
+            if (string.IsNullOrEmpty(text)) return [];
+
+            if (font == IntPtr.Zero)
+                throw new InvalidOperationException("GetTextControlLines: font is null.");
+
+            List<TextControlLineData> lines = [];
+
+            int globalIndex = 0;
+            string[] paragraphs = text.Split('\n');
+
+            foreach (string paragraph in paragraphs)
+            {
+                if (paragraph.Length == 0) continue;
+
+                int start = 0;
+
+                while (start < paragraph.Length)
+                {
+                    Size singleLineSize = metrics.MeasureString(font, paragraph[start..]);
+
+                    int effectiveWrap = wrapWidth > 0 ? wrapWidth : int.MaxValue;
+
+                    if (wrapType == TextControlWrapType.None || singleLineSize.Width <= effectiveWrap)
+                    {
+                        lines.Add(new TextControlLineData(
+                            globalIndex + start,
+                            globalIndex + paragraph.Length,
+                            singleLineSize.Width,
+                            singleLineSize.Height));
+
+                        start = paragraph.Length;
+
+                        continue;
+                    }
+
+                    int charsToTake;
+
+                    switch (wrapType)
+                    {
+                        case TextControlWrapType.Soft:
+                        case TextControlWrapType.AutoSoft:
+                            {
+                                int wrapPos = FindWordBoundaryWrap(font, paragraph, start, effectiveWrap, metrics);
+                                charsToTake = wrapPos > start ? wrapPos - start : FindCharCountWithinPixelWidth(font, paragraph, start, effectiveWrap, metrics);
+                                break;
+                            }
+                        case TextControlWrapType.Hard:
+                        case TextControlWrapType.AutoHard:
+                            {
+                                charsToTake = FindCharCountWithinPixelWidth(font, paragraph, start, effectiveWrap, metrics);
+                                break;
+                            }
+                        default:
+                            charsToTake = paragraph.Length - start;
+                            break;
+                    }
+
+                    charsToTake = Math.Clamp(charsToTake, 0, paragraph.Length - start);
+
+                    int visualEnd = start + charsToTake;
+                    string candidate = paragraph[start..visualEnd];
+                    Size lineSize = metrics.MeasureString(font, candidate);
+
+                    while (lineSize.Width > effectiveWrap && visualEnd > start)
+                    {
+                        visualEnd--;
+                        candidate = paragraph[start..visualEnd];
+                        lineSize = metrics.MeasureString(font, candidate);
+                    }
+
+                    int advanceAmount = visualEnd - start;
+
+                    if (wrapType == TextControlWrapType.Soft || wrapType == TextControlWrapType.AutoSoft)
+                    {
+                        int displayEnd = visualEnd;
+
+                        while (displayEnd > start && char.IsWhiteSpace(paragraph[displayEnd - 1]))
+                            displayEnd--;
+
+                        string displayLine = paragraph[start..displayEnd];
+
+                        lineSize = metrics.MeasureString(font, displayLine);
+
+                        lines.Add(new TextControlLineData(
+                            globalIndex + start,
+                            globalIndex + displayEnd,
+                            lineSize.Width,
+                            lineSize.Height));
+                    }
+                    else
+                    {
+                        string finalLine = paragraph[start..visualEnd];
+                        lineSize = metrics.MeasureString(font, finalLine);
+
+                        lines.Add(new TextControlLineData(
+                            globalIndex + start,
+                            globalIndex + visualEnd,
+                            lineSize.Width,
+                            lineSize.Height));
+                    }
+
+                    start += advanceAmount;
+                }
+
+                globalIndex += paragraph.Length + (paragraph != paragraphs[^1] ? 1 : 0);
+            }
+
+            return lines;
+        }
+
+        public static IntPtr CreateFontSurface(IntPtr font, TextProperties props, string content)
+        {
+            if (font == IntPtr.Zero)
+                throw new ArgumentException("Font handle is invalid.", nameof(font));
+
+            TTF.FontStyleFlags originalStyle = TTF.GetFontStyle(font);
+            TTF.HintingFlags originalHinting = TTF.GetFontHinting(font);
+            bool originalKerning = TTF.GetFontKerning(font);
+            int originalOutline = TTF.GetFontOutline(font);
+
+            TTF.SetFontStyle(font, props.FontStyleFlags);
+            TTF.SetFontHinting(font, props.FontHintingFlags);
+            TTF.SetFontKerning(font, props.FontKerning);
+            TTF.SetFontOutline(font, props.TextOutlineSize);
+
+            IntPtr surface;
+
+            switch (props.FontRenderMode)
+            {
+                case FontRenderMode.Solid:
+                    surface = TTF.RenderTextSolid(font, content, 0, props.TextForegroundColor);
+                    break;
+
+                case FontRenderMode.Shaded:
+                    surface = TTF.RenderTextShaded(font, content, 0, props.TextForegroundColor, props.TextBackgroundColor);
+                    break;
+
+                case FontRenderMode.Blended:
+                default:
+                    surface = TTF.RenderTextBlended(font, content, 0, props.TextForegroundColor);
+                    break;
+            }
+
+            TTF.SetFontStyle(font, originalStyle);
+            TTF.SetFontHinting(font, originalHinting);
+            TTF.SetFontKerning(font, originalKerning);
+            TTF.SetFontOutline(font, originalOutline);
+
+            if (surface == IntPtr.Zero)
+                throw new InvalidOperationException($"TTF render failed: {SDL.GetError()}");
+
+            return surface;
+        }
+        public static IntPtr CreateFontTexture(Window window, IntPtr font, TextProperties props, string content)
+        {
+            if (window.Renderer == IntPtr.Zero)
+                throw new InvalidOperationException("Renderer is not initialized.");
+
+            IntPtr surface = CreateFontSurface(font, props, content);
+            IntPtr texture = CreateTextureFromSurface(window, surface);
+
+            return texture;
         }
 
         #endregion
