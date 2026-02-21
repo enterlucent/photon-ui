@@ -1,12 +1,13 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using PhotonUI.Extensions;
+using PhotonUI.Interfaces.Services;
 using PhotonUI.Models;
 using SDL3;
 
 namespace PhotonUI.Controls
 {
-    public partial class Presenter(IServiceProvider serviceProvider)
-        : Control(serviceProvider)
+    public partial class Presenter(IServiceProvider serviceProvider, IBindingService bindingService)
+        : Control(serviceProvider, bindingService)
     {
         [ObservableProperty] private Control? child;
 

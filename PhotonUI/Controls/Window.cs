@@ -2,14 +2,15 @@
 using PhotonUI.Events.Framework;
 using PhotonUI.Events.Platform;
 using PhotonUI.Extensions;
+using PhotonUI.Interfaces.Services;
 using SDL3;
 
 namespace PhotonUI.Controls
 {
     public record WindowTabStopEntry(int Stop, Control Control, int InsertionOrder);
 
-    public partial class Window(IServiceProvider serviceProvider)
-        : Presenter(serviceProvider)
+    public partial class Window(IServiceProvider serviceProvider, IBindingService bindingService)
+        : Presenter(serviceProvider, bindingService)
     {
         protected IntPtr WindowBackTexture;
 

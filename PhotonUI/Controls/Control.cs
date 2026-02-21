@@ -3,7 +3,9 @@ using PhotonUI.Events;
 using PhotonUI.Events.Framework;
 using PhotonUI.Events.Platform;
 using PhotonUI.Exceptions;
+using PhotonUI.Extensions;
 using PhotonUI.Interfaces;
+using PhotonUI.Interfaces.Services;
 using PhotonUI.Models;
 using PhotonUI.Models.Properties;
 using SDL3;
@@ -18,10 +20,11 @@ namespace PhotonUI.Controls
         BottomUp
     }
 
-    public partial class Control(IServiceProvider serviceProvider)
+    public partial class Control(IServiceProvider serviceProvider, IBindingService bindingService)
         : ObservableObject, IDisposable, IControlProperties
     {
         protected readonly IServiceProvider ServiceProvider = serviceProvider;
+        protected readonly IBindingService BindingService = bindingService;
 
         public Window? Window;
         public Size IntrinsicSize;
@@ -116,6 +119,22 @@ namespace PhotonUI.Controls
         #endregion
 
         #region Control: Service 
+
+        public virtual T Create<T>() where T : class
+            => DependencyInjectionExtensions.Create<T>(this.ServiceProvider);
+
+        public virtual void Bind(Control target, string targetProperty, object source, string sourceProperty, bool twoWay = false)
+            => this.BindingService.Bind(target, targetProperty, source, sourceProperty, twoWay);
+        public virtual void Unbind(Control target, string targetProperty)
+            => this.BindingService.Unbind(target, targetProperty);
+
+        public virtual void BindStyles<T>(Control target, bool bidirectional = false) where T : IStyleProperties
+        {
+            Type interfaceType = typeof(T);
+
+            foreach (PropertyInfo prop in interfaceType.GetProperties())
+                this.Bind(target, prop.Name, this, prop.Name, bidirectional);
+        }
 
         public virtual T FromControl<T>() where T : struct, IStyleProperties
         {
