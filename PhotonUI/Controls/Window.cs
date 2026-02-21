@@ -1,9 +1,11 @@
-﻿using PhotonUI.Events;
+﻿using PhotonUI.Animations;
+using PhotonUI.Events;
 using PhotonUI.Events.Framework;
 using PhotonUI.Events.Platform;
 using PhotonUI.Extensions;
 using PhotonUI.Interfaces.Services;
 using SDL3;
+using System.Linq.Expressions;
 
 namespace PhotonUI.Controls
 {
@@ -15,9 +17,10 @@ namespace PhotonUI.Controls
     }
     public record WindowTabStopEntry(int Stop, Control Control, int InsertionOrder);
 
-    public partial class Window(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
+    public partial class Window(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService, IAnimationBuilder animationBulder)
         : Presenter(serviceProvider, bindingService, keyBindingService)
     {
+        protected IAnimationBuilder AnimationBulder = animationBulder;
         protected WindowMode WindowMode = WindowMode.Tangible;
         protected IntPtr WindowBackTexture;
 
@@ -25,6 +28,7 @@ namespace PhotonUI.Controls
         protected Control? HoveredControl;
         protected Control? KeyboardCapturedControl;
         protected Control? MouseCapturedControl;
+        protected readonly List<AnimationHandle> ActiveAnimations = [];
 
         protected readonly List<WindowTabStopEntry> TabStops = [];
         protected int TabStopIndex = -1;
@@ -75,6 +79,7 @@ namespace PhotonUI.Controls
         public virtual void Tick()
         {
             this.ApplyTick();
+            this.ApplyAnimationRequests();
             this.ApplyIntrinsicRequests();
             this.ApplyMeasureRequests();
             this.ApplyArrangeRequests();
@@ -326,6 +331,24 @@ namespace PhotonUI.Controls
             this.SetWindowSize((int)this.DrawRect.W, (int)this.DrawRect.H);
         }
 
+        public PropertyAnimation<TTarget, TProp> Animate<TTarget, TProp>(TTarget target, Expression<Func<TTarget, TProp>> selector)
+            where TTarget : Control
+        {
+            return this.AnimationBulder.BuildPropertyAnimation(target, selector);
+        }
+        public AnimationHandle AnimationEnqueue(AnimationBase animation)
+        {
+            AnimationHandle handle = new(animation);
+
+            this.ActiveAnimations.Add(handle);
+
+            if (handle.State == AnimationState.Ready)
+                handle.Start();
+
+            return handle;
+        }
+        public void CancelAllAnimations() => this.ActiveAnimations.Clear();
+
         public virtual void CaptureMouse(Control control)
         {
             ArgumentNullException.ThrowIfNull(control, nameof(control));
@@ -404,6 +427,27 @@ namespace PhotonUI.Controls
 
                 return true;
             });
+        }
+        protected void ApplyAnimationRequests()
+        {
+            if (this.ActiveAnimations.Count == 0) return;
+
+            foreach (AnimationHandle? handle in this.ActiveAnimations.ToList())
+            {
+                if (!handle.IsValid ||
+                    handle.State == AnimationState.Invalid ||
+                    handle.State == AnimationState.Completed ||
+                    handle.State == AnimationState.Stopped ||
+                    handle.State == AnimationState.Canceled)
+                {
+                    this.ActiveAnimations.Remove(handle);
+                    handle.Invalidate();
+                    continue;
+                }
+
+                if (handle.State == AnimationState.Running)
+                    handle.Update();
+            }
         }
         protected void ApplyIntrinsicRequests()
         {

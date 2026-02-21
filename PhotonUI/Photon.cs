@@ -21,6 +21,18 @@ namespace PhotonUI
             if (control.Window is null)
                 throw new InvalidOperationException($"Control '{control.Name}' has no RootWindow.");
         }
+        public static Window GetWindow(Control control)
+        {
+            Control? current = control;
+
+            while (current.Parent != null)
+                current = current.Parent;
+
+            if (current is Window window)
+                return window;
+
+            throw new InvalidOperationException("Window not found");
+        }
         public static void InvalidateRenderChain(Control control)
         {
             if (!control.IsInitialized) return;
@@ -60,6 +72,37 @@ namespace PhotonUI
             float newY = anchorY - newH * anchor.Y;
 
             return new SDL.FRect { X = newX, Y = newY, W = newW, H = newH };
+        }
+        public static SDL.FRect RotateRect(SDL.FRect rect, float angle, SDL.FPoint anchor)
+        {
+            Vector2 norm = new(rect.X + rect.W * anchor.X, rect.Y + rect.H * anchor.Y);
+
+            Vector2[] corners =
+            [
+                new Vector2(rect.X, rect.Y),
+                new Vector2(rect.X + rect.W, rect.Y),
+                new Vector2(rect.X + rect.W, rect.Y + rect.H),
+                new Vector2(rect.X, rect.Y + rect.H)
+            ];
+
+            Vector2[] rotated = [.. corners.Select(c =>
+            {
+                float dx = c.X - norm.X;
+                float dy = c.Y - norm.Y;
+                float cos = MathF.Cos(angle);
+                float sin = MathF.Sin(angle);
+                return new Vector2(
+                    dx * cos - dy * sin + norm.X,
+                    dx * sin + dy * cos + norm.Y
+                );
+            })];
+
+            float minX = rotated.Min(p => p.X);
+            float maxX = rotated.Max(p => p.X);
+            float minY = rotated.Min(p => p.Y);
+            float maxY = rotated.Max(p => p.Y);
+
+            return new SDL.FRect { X = minX, Y = minY, W = maxX - minX, H = maxY - minY };
         }
 
         public static Size GetScaledSize(Size controlSize, Size contentSize, StretchProperties props)
@@ -276,6 +319,13 @@ namespace PhotonUI
             return px >= bounds.X && px < bounds.X + bounds.W &&
                    py >= bounds.Y && py < bounds.Y + bounds.H;
         }
+        public static bool ControlHitTest(Control control, float px, float py)
+        {
+            if (!control.IsVisible || !control.IsHitTestVisible)
+                return false;
+
+            return HitTest(control.DrawRect, px, py);
+        }
         public static bool AncestorHitTest(Control control, float px, float py)
         {
             Control? parent = control.Parent;
@@ -435,6 +485,21 @@ namespace PhotonUI
         #endregion
 
         #region Photon: Control Layout Helpers
+
+        public static float GetMeasuredStackWidth(IReadOnlyList<Control> children)
+        {
+            float total = 0f;
+            foreach (Control child in children)
+                if (child != null) total += child.DrawRect.W + child.MarginExtent.Horizontal;
+            return total;
+        }
+        public static float GetMeasuredStackHeight(IReadOnlyList<Control> children)
+        {
+            float total = 0f;
+            foreach (Control child in children)
+                if (child != null) total += child.DrawRect.H + child.MarginExtent.Vertical;
+            return total;
+        }
 
         public static float ApplyHorizontalScroll(Control control, float scrollX, SDL.FRect viewport)
         {
@@ -883,6 +948,20 @@ namespace PhotonUI
             SDL.SetTextureAlphaMod(texture, originalAlpha);
         }
 
+        public static void DrawControlTextureRotated<T>(T control, IntPtr texture, SDL.FRect destination, double angle, SDL.FPoint center, SDL.FlipMode flip, SDL.Rect? clipRect = null) where T : Control, IControlProperties
+        {
+            EnsureRootWindow(control);
+
+            SDL.GetTextureAlphaMod(texture, out byte originalAlpha);
+
+            byte newAlpha = (byte)(originalAlpha * control.Opacity);
+
+            SDL.SetTextureAlphaMod(texture, newAlpha);
+
+            DrawTextureRotated(control.Window!, texture, null, destination, angle, center, flip, control.Window!.BackTexture, clipRect);
+
+            SDL.SetTextureAlphaMod(texture, originalAlpha);
+        }
         public static void DrawControlTextureRotated<T>(T control, IntPtr texture, SDL.FRect destination, SDL.FRect? sourceRect, double angle, SDL.FPoint center, SDL.FlipMode flip, SDL.Rect? clipRect = null) where T : Control, IControlProperties
         {
             EnsureRootWindow(control);
