@@ -1,8 +1,14 @@
 ﻿using PhotonUI.Controls;
+using PhotonUI.Controls.Content;
 using PhotonUI.Extensions;
 using PhotonUI.Models;
 using PhotonUI.Models.Properties;
+using PhotonUI.Services;
 using SDL3;
+using System.Diagnostics;
+using System.Numerics;
+using System.Reflection;
+using System.Text;
 
 namespace PhotonUI
 {
@@ -40,6 +46,20 @@ namespace PhotonUI
                 boundary.RequestRender(false);
                 boundary.IsBoundryDirty = true;
             }
+        }
+
+        public static SDL.FRect ScaleRect(SDL.FRect rect, Vector2 scale, SDL.FPoint anchor)
+        {
+            float anchorX = rect.X + rect.W * anchor.X;
+            float anchorY = rect.Y + rect.H * anchor.Y;
+
+            float newW = rect.W * scale.X;
+            float newH = rect.H * scale.Y;
+
+            float newX = anchorX - newW * anchor.X;
+            float newY = anchorY - newH * anchor.Y;
+
+            return new SDL.FRect { X = newX, Y = newY, W = newW, H = newH };
         }
 
         public static Size GetScaledSize(Size controlSize, Size contentSize, StretchProperties props)
@@ -89,6 +109,111 @@ namespace PhotonUI
 
             return new Size(targetW, targetH);
         }
+
+        #region Photon: Diagnostics
+
+        public static string BuildCompactStackLine(int trimStartCalls = 0)
+        {
+            StackTrace stackTrace = new(skipFrames: 2, fNeedFileInfo: false);
+            StackFrame[]? frames = stackTrace.GetFrames();
+
+            if (frames == null)
+                return "stack: []";
+
+            List<string> parts = [];
+
+            foreach (StackFrame? frame in frames.Reverse())
+            {
+                MethodBase? method = frame.GetMethod();
+                if (method == null)
+                    continue;
+
+                string typeName = method.DeclaringType?.Name ?? "UnknownType";
+                string methodName = method.Name;
+
+                if (methodName.Contains('<'))
+                {
+                    int startBracket = methodName.IndexOf('<') + 1;
+                    int endBracket = methodName.IndexOf('>');
+                    if (endBracket > 0)
+                        methodName = methodName[startBracket..endBracket];
+                }
+
+                if (typeName.Contains('<'))
+                {
+                    int startBracket = typeName.IndexOf('<') + 1;
+                    int endBracket = typeName.IndexOf('>');
+                    if (endBracket > 0)
+                        typeName = typeName[startBracket..endBracket];
+                    if (string.IsNullOrEmpty(typeName))
+                        typeName = "Anon";
+                }
+
+                parts.Add($"{typeName}.{methodName}");
+            }
+
+            parts = [.. parts.Select(p => p.Contains(".TunnelControls") ? "Tunneling" : p)];
+
+            for (int i = 0; i < parts.Count - 1;)
+            {
+                if (parts[i] == "Tunneling")
+                {
+                    int collapseEnd = i;
+
+                    while (collapseEnd < parts.Count && parts[collapseEnd] == "Tunneling")
+                        collapseEnd++;
+
+                    if (collapseEnd > i + 1)
+                        parts.RemoveRange(i + 1, collapseEnd - i - 1);
+                }
+
+                i++;
+            }
+
+            if (trimStartCalls > 0 && trimStartCalls < parts.Count)
+                parts = [.. parts.Skip(trimStartCalls)];
+
+            return $"stack: {string.Join("→", parts)}";
+        }
+
+        public static string GetLayoutData(Control? control, Func<string>? additional = null)
+        {
+            if (control == null) return "Error: No control provided!";
+
+            StringBuilder data = new();
+
+            string stack = BuildCompactStackLine(3);
+            string phase = string.Empty;
+
+            if (stack.Contains("ApplyIntrinsicRequests"))
+                phase = "FrameworkIntrinsic";
+            else if (stack.Contains("ApplyMeasureRequests"))
+                phase = "FrameworkMeasure";
+            else if (stack.Contains("ApplyArrangeRequests"))
+                phase = "FrameworkArrange";
+            else if (stack.Contains("ApplyRenderRequests"))
+                phase = "FrameworkRender";
+
+            data.AppendLine($"layout: {control.Name} :: {control.GetType().Name}");
+            data.Append("  ");
+            data.Append($"phase: {phase}\n");
+
+            data.Append("  ");
+            data.Append($"intrinsic=({control.IntrinsicSize.Width:F1},{control.IntrinsicSize.Height:F1}), ");
+            data.Append($"draw=({control.DrawRect.X},{control.DrawRect.Y},{control.DrawRect.W},{control.DrawRect.H})\n");
+
+            data.Append("  ");
+            data.Append($"margin=({control.Margin.Left},{control.Margin.Top},{control.Margin.Right},{control.Margin.Bottom}), ");
+            data.Append($"padding=({control.Padding.Left},{control.Padding.Top},{control.Padding.Right},{control.Padding.Bottom}), ");
+            data.Append($"minmax=({control.MinWidth},{control.MinHeight},{control.MaxWidth},{control.MaxHeight})\n");
+
+            if (additional is not null)
+                data.AppendLine(additional());
+
+            return data.ToString();
+        }
+
+        #endregion
 
         #region Photon: Hit Testing
 
@@ -503,6 +628,38 @@ namespace PhotonUI
             if (!result)
                 throw new InvalidOperationException($"RenderTexture failed: {SDL.GetError()}");
         }
+        public static bool DrawTextureRotated(Window window, IntPtr texture, SDL.FRect? sourceRect, SDL.FRect destination, double angle, SDL.FPoint center, SDL.FlipMode flip, IntPtr target, SDL.Rect? clipRect = null)
+        {
+            if (texture == IntPtr.Zero)
+                throw new InvalidOperationException("Cannot draw: texture is null.");
+
+            IntPtr renderer = window.Renderer;
+            IntPtr previousTarget = SDL.GetRenderTarget(renderer);
+
+            if (target != IntPtr.Zero)
+                SDL.SetRenderTarget(renderer, target);
+
+            SDL.GetRenderClipRect(renderer, out SDL.Rect previousClipRect);
+
+            if (clipRect.HasValue)
+                ApplyControlClipRect(window, clipRect.Value);
+
+            bool result;
+            if (sourceRect.HasValue)
+                result = SDL.RenderTextureRotated(renderer, texture, sourceRect.Value, in destination, angle, center, flip);
+            else
+                result = SDL.RenderTextureRotated(renderer, texture, IntPtr.Zero, in destination, angle, center, flip);
+
+            ApplyControlClipRect(window, previousClipRect);
+
+            if (target != IntPtr.Zero)
+                SDL.SetRenderTarget(renderer, previousTarget);
+
+            if (!result)
+                throw new InvalidOperationException($"RenderTextureRotated failed: {SDL.GetError()}");
+
+            return result;
+        }
 
         #endregion
 
@@ -588,6 +745,21 @@ namespace PhotonUI
             SDL.SetTextureAlphaMod(texture, newAlpha);
 
             DrawTexture(control.Window!, texture, destination, control.Window!.BackTexture, sourceRect, clipRect);
+
+            SDL.SetTextureAlphaMod(texture, originalAlpha);
+        }
+
+        public static void DrawControlTextureRotated<T>(T control, IntPtr texture, SDL.FRect destination, SDL.FRect? sourceRect, double angle, SDL.FPoint center, SDL.FlipMode flip, SDL.Rect? clipRect = null) where T : Control, IControlProperties
+        {
+            EnsureRootWindow(control);
+
+            SDL.GetTextureAlphaMod(texture, out byte originalAlpha);
+
+            byte newAlpha = (byte)(originalAlpha * control.Opacity);
+
+            SDL.SetTextureAlphaMod(texture, newAlpha);
+
+            DrawTextureRotated(control.Window!, texture, sourceRect, destination, angle, center, flip, control.Window!.BackTexture, clipRect);
 
             SDL.SetTextureAlphaMod(texture, originalAlpha);
         }
