@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using PhotonUI.Events.Framework;
 using PhotonUI.Extensions;
 using PhotonUI.Interfaces.Services;
 using PhotonUI.Models;
@@ -16,25 +17,38 @@ namespace PhotonUI.Controls
             if (child != null)
                 child.Parent = null;
         }
-        partial void OnChildChanged(Control? value)
+        partial void OnChildChanged(Control? oldValue, Control? newValue)
         {
-            if (value != null)
+            if (oldValue != null)
             {
-                if (value.Parent != null)
+                oldValue.Parent = null;
+
+                if (IsInitialized && Window != null)
+                {
+                    FrameworkEventBubble(Window,
+                        new ChildChangedEventArgs(this, oldValue, ChildChangeAction.Removed));
+                }
+            }
+
+            if (newValue != null)
+            {
+                if (newValue.Parent != null)
                     throw new InvalidOperationException("Control already has a parent.");
 
-                value.Parent = this;
-
-                this.RequestArrange();
+                newValue.Parent = this;
 
                 if (IsInitialized)
                 {
                     if (Window == null)
-                        throw new InvalidOperationException($"Control '{value.Name}' is not associated with a RootWindow.");
+                        throw new InvalidOperationException($"Control '{newValue.Name}' is not associated with a RootWindow.");
 
-                    value.FrameworkInitialize(Window);
+                    FrameworkEventBubble(Window, new ChildChangedEventArgs(this, newValue, ChildChangeAction.Added));
+
+                    newValue.FrameworkInitialize(Window);
                 }
             }
+
+            RequestArrange();
         }
 
         #region Presenter: Framework
