@@ -7,11 +7,18 @@ using SDL3;
 
 namespace PhotonUI.Controls
 {
+    public enum WindowMode
+    {
+        None,
+        Tangible,
+        Logical
+    }
     public record WindowTabStopEntry(int Stop, Control Control, int InsertionOrder);
 
     public partial class Window(IServiceProvider serviceProvider, IBindingService bindingService)
         : Presenter(serviceProvider, bindingService)
     {
+        protected WindowMode WindowMode = WindowMode.Tangible;
         protected IntPtr WindowBackTexture;
 
         protected Control? FocusedControl;
@@ -25,6 +32,8 @@ namespace PhotonUI.Controls
 
         protected List<Control> PreviousHoverPath = [];
 
+        public WindowMode Mode => this.WindowMode;
+        public bool HasTangibleWindow => this.Mode == WindowMode.Tangible && this.Handle != IntPtr.Zero;
         public IntPtr BackTexture => this.WindowBackTexture;
 
         public Control? Focused => this.FocusedControl;
@@ -45,6 +54,21 @@ namespace PhotonUI.Controls
         #endregion
 
         #region Window: External
+
+        public virtual Window CreateLogicalWindow(int width, int height)
+        {
+            if (this.Mode != WindowMode.Tangible)
+                throw new InvalidOperationException("Logical windows must be created from a tangible window.");
+
+            Window logical = this.Create<Window>();
+
+            logical.OnInitialize(this);
+            logical.WindowMode = WindowMode.Logical;
+            logical.Renderer = this.Renderer;
+            logical.SetWindowSize(width, height);
+
+            return logical;
+        }
 
         public virtual void Initialize()
             => this.FrameworkInitialize(this);
@@ -617,22 +641,32 @@ namespace PhotonUI.Controls
         {
             if (window.IsInitialized == true) return;
 
-            //TODO: This needs to be replaced with argumentation or assume this is setup before hand.
-            window.Handle = SDL.CreateWindow("PhotonUI :: Demo", 800, 600, SDL.WindowFlags.Resizable);
-
-            window.Renderer = SDL.CreateRenderer(window.Handle, null);
-
-            if (window.Renderer == IntPtr.Zero)
+            if (window.Mode == WindowMode.Tangible)
             {
-                SDL.DestroyWindow(window.Handle);
-                SDL.Quit();
+                //TODO: This needs to be replaced with argumentation or assume this is setup before hand.
+                window.Handle = SDL.CreateWindow("PhotonUI :: Demo", 800, 600, SDL.WindowFlags.Resizable);
 
-                return;
+                if (!window.HasTangibleWindow)
+                {
+                    SDL.Quit();
+
+                    return;
+                }
+
+                window.Renderer = SDL.CreateRenderer(window.Handle, null);
+
+                if (window.Renderer == IntPtr.Zero)
+                {
+                    SDL.DestroyWindow(window.Handle);
+                    SDL.Quit();
+
+                    return;
+                }
+
+                SDL.GetWindowSize(window.Handle, out int width, out int height);
+
+                window.SetWindowSize(width, height);
             }
-
-            SDL.GetWindowSize(window.Handle, out int width, out int height);
-
-            window.SetWindowSize(width, height);
 
             window.Name = window.Name;
             window.Window = window;
