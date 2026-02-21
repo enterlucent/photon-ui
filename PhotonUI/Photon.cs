@@ -222,6 +222,52 @@ namespace PhotonUI
 
         #endregion
 
+        #region Photon: Control Layout Helpers
+
+        public static float ApplyHorizontalScroll(Control control, float scrollX, SDL.FRect viewport)
+        {
+            SDL.FRect scrolled = control.DrawRect;
+            float baseX = scrolled.X;
+
+            if (scrolled.W <= viewport.W)
+            {
+                scrolled.X = baseX;
+                control.DrawRect = scrolled;
+                return 0;
+            }
+            else
+            {
+                float maxScrollX = scrolled.W - viewport.W;
+                scrollX = Math.Clamp(scrollX, 0, maxScrollX);
+                scrolled.X = baseX - scrollX;
+                control.DrawRect = scrolled;
+                return scrollX;
+            }
+        }
+        public static float ApplyVerticalScroll(Control control, float scrollY, SDL.FRect viewport)
+        {
+            SDL.FRect scrolled = control.DrawRect;
+
+            float baseY = scrolled.Y;
+
+            if (scrolled.H <= viewport.H)
+            {
+                scrolled.Y = baseY;
+                control.DrawRect = scrolled;
+                return 0;
+            }
+            else
+            {
+                float maxScrollY = scrolled.H - viewport.H;
+                scrollY = Math.Clamp(scrollY, 0, maxScrollY);
+                scrolled.Y = baseY - scrollY;
+                control.DrawRect = scrolled;
+                return scrollY;
+            }
+        }
+
+        #endregion
+
         #region Photon: Clip Management Helpers
 
         public static void GetControlClipRect(SDL.FRect controlRect, bool clipToBounds, SDL.Rect? clipRect, out SDL.Rect? rect)
@@ -268,6 +314,19 @@ namespace PhotonUI
         #endregion
 
         #region Photon: Drawing Helpers
+
+        public static IntPtr CreateTexture(IntPtr renderer, int width, int height, SDL.PixelFormat format = SDL.PixelFormat.ARGB8888, SDL.TextureAccess access = SDL.TextureAccess.Target)
+        {
+            if (renderer == IntPtr.Zero)
+                throw new ArgumentException("Renderer pointer must not be null.", nameof(renderer));
+
+            IntPtr texture = SDL.CreateTexture(renderer, format, access, width, height);
+
+            if (texture == IntPtr.Zero)
+                throw new InvalidOperationException($"CreateTexture failed: {SDL.GetError()}");
+
+            return texture;
+        }
 
         public static void ClearRectangle(Window window, SDL.FRect rect, IntPtr target, SDL.Color baseColor = new SDL.Color())
         {
@@ -370,6 +429,36 @@ namespace PhotonUI
             if (target != IntPtr.Zero)
                 SDL.SetRenderTarget(window.Renderer, previousTarget);
         }
+        public static void DrawTexture(Window window, IntPtr texture, SDL.FRect destination, IntPtr target, SDL.FRect? sourceRect = null, SDL.Rect? clipRect = null)
+        {
+            if (texture == IntPtr.Zero)
+                throw new InvalidOperationException("Cannot draw: texture is null.");
+
+            IntPtr renderer = window.Renderer;
+            IntPtr previousTarget = SDL.GetRenderTarget(renderer);
+
+            if (target != IntPtr.Zero)
+                SDL.SetRenderTarget(renderer, target);
+
+            SDL.GetRenderClipRect(renderer, out SDL.Rect previousClipRect);
+
+            if (clipRect.HasValue)
+                ApplyControlClipRect(window, clipRect.Value);
+
+            bool result;
+            if (sourceRect.HasValue)
+                result = SDL.RenderTexture(renderer, texture, sourceRect.Value, in destination);
+            else
+                result = SDL.RenderTexture(renderer, texture, IntPtr.Zero, in destination);
+
+            ApplyControlClipRect(window, previousClipRect);
+
+            if (target != IntPtr.Zero)
+                SDL.SetRenderTarget(renderer, previousTarget);
+
+            if (!result)
+                throw new InvalidOperationException($"RenderTexture failed: {SDL.GetError()}");
+        }
 
         #endregion
 
@@ -428,6 +517,21 @@ namespace PhotonUI
             SDL.FRect drawSurface = control.DrawRect;
 
             DrawBorder(control.Window!, drawSurface, props.BorderThickness, adjusted, control.Window!.BackTexture);
+        }
+
+        public static void DrawControlTexture<T>(T control, IntPtr texture, SDL.FRect destination, SDL.Rect? clipRect = null) where T : Control, IControlProperties
+        {
+            EnsureRootWindow(control);
+
+            SDL.GetTextureAlphaMod(texture, out byte originalAlpha);
+
+            byte newAlpha = (byte)(originalAlpha * control.Opacity);
+
+            SDL.SetTextureAlphaMod(texture, newAlpha);
+
+            DrawTexture(control.Window!, texture, destination, control.Window!.BackTexture, null, clipRect);
+
+            SDL.SetTextureAlphaMod(texture, originalAlpha);
         }
 
         #endregion
