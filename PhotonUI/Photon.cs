@@ -61,7 +61,7 @@ namespace PhotonUI
 
             return new SDL.FRect { X = newX, Y = newY, W = newW, H = newH };
         }
-        
+
         public static Size GetScaledSize(Size controlSize, Size contentSize, StretchProperties props)
         {
             float targetW = contentSize.Width;
@@ -940,6 +940,31 @@ namespace PhotonUI
             }
 
             return maxWidth;
+        }
+
+        public static (int line, int column) GetLineAndColumnFromControlLine(List<TextControlLineData> cache, string text, int textIndex)
+        {
+            if (cache == null || cache.Count == 0)
+                return (0, 0);
+
+            if (textIndex < 0) textIndex = 0;
+            if (textIndex > text.Length) textIndex = text.Length;
+
+            for (int i = 0; i < cache.Count; i++)
+            {
+                TextControlLineData lineInfo = cache[i];
+
+                if (textIndex >= lineInfo.StartIndex && textIndex <= lineInfo.EndIndex)
+                {
+                    int column = textIndex - lineInfo.StartIndex;
+
+                    return (i, column);
+                }
+            }
+
+            TextControlLineData lastLine = cache[^1];
+
+            return (cache.Count - 1, lastLine.EndIndex - lastLine.StartIndex);
         }
 
         public static int GetIndexFromPixelHeight(List<TextControlLineData> lines, float pixelHeight)
