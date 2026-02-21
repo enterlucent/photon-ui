@@ -308,6 +308,64 @@ namespace PhotonUI
             if (target != IntPtr.Zero)
                 SDL.SetRenderTarget(window.Renderer, previousTarget);
         }
+        public static void DrawBorder(Window window, SDL.FRect controlRect, Thickness borderThickness, BorderColors colors, IntPtr target)
+        {
+            IntPtr previousTarget = SDL.GetRenderTarget(window.Renderer);
+
+            if (target != IntPtr.Zero)
+                SDL.SetRenderTarget(window.Renderer, target);
+
+            if (colors.Left.A > 0)
+            {
+                SDL.SetRenderDrawColor(window.Renderer, colors.Left.R, colors.Left.G, colors.Left.B, colors.Left.A);
+                SDL.RenderFillRect(window.Renderer, new SDL.FRect
+                {
+                    X = controlRect.X,
+                    Y = controlRect.Y,
+                    W = borderThickness.Left,
+                    H = controlRect.H
+                });
+            }
+
+            if (colors.Top.A > 0)
+            {
+                SDL.SetRenderDrawColor(window.Renderer, colors.Top.R, colors.Top.G, colors.Top.B, colors.Top.A);
+                SDL.RenderFillRect(window.Renderer, new SDL.FRect
+                {
+                    X = controlRect.X,
+                    Y = controlRect.Y,
+                    W = controlRect.W,
+                    H = borderThickness.Top
+                });
+            }
+
+            if (colors.Right.A > 0)
+            {
+                SDL.SetRenderDrawColor(window.Renderer, colors.Right.R, colors.Right.G, colors.Right.B, colors.Right.A);
+                SDL.RenderFillRect(window.Renderer, new SDL.FRect
+                {
+                    X = controlRect.X + controlRect.W - borderThickness.Right,
+                    Y = controlRect.Y,
+                    W = borderThickness.Right,
+                    H = controlRect.H
+                });
+            }
+
+            if (colors.Bottom.A > 0)
+            {
+                SDL.SetRenderDrawColor(window.Renderer, colors.Bottom.R, colors.Bottom.G, colors.Bottom.B, colors.Bottom.A);
+                SDL.RenderFillRect(window.Renderer, new SDL.FRect
+                {
+                    X = controlRect.X,
+                    Y = controlRect.Y + controlRect.H - borderThickness.Bottom,
+                    W = controlRect.W,
+                    H = borderThickness.Bottom
+                });
+            }
+
+            if (target != IntPtr.Zero)
+                SDL.SetRenderTarget(window.Renderer, previousTarget);
+        }
 
         #endregion
 
@@ -328,6 +386,17 @@ namespace PhotonUI
             SDL.FRect drawSurface = control.DrawRect;
 
             DrawRectangle(control.Window!, drawSurface, adjusted, control.Window?.BackTexture ?? default);
+        }
+
+        public static void DrawControlBorder<T>(T control) where T : Control, IBorderProperties, IControlProperties
+        {
+            EnsureRootWindow(control);
+
+            BorderColors adjusted = control.BorderColors.WithOpacity(control.Opacity);
+
+            SDL.FRect drawSurface = control.DrawRect;
+
+            DrawBorder(control.Window!, drawSurface, control.BorderThickness, adjusted, control.Window!.BackTexture);
         }
 
         #endregion
