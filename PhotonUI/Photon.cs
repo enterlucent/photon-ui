@@ -61,7 +61,7 @@ namespace PhotonUI
 
             return new SDL.FRect { X = newX, Y = newY, W = newW, H = newH };
         }
-
+        
         public static Size GetScaledSize(Size controlSize, Size contentSize, StretchProperties props)
         {
             float targetW = contentSize.Width;
@@ -266,6 +266,11 @@ namespace PhotonUI
         public static string GetAncestorPath(Control c)
             => string.Join("/", GetAncestors(c).Select(a => a.Name));
 
+        public static bool IHitTest(SDL.Rect bounds, float px, float py)
+        {
+            return px >= bounds.X && px < bounds.X + bounds.W &&
+                   py >= bounds.Y && py < bounds.Y + bounds.H;
+        }
         public static bool HitTest(SDL.FRect bounds, float px, float py)
         {
             return px >= bounds.X && px < bounds.X + bounds.W &&
@@ -327,6 +332,15 @@ namespace PhotonUI
 
         #region Photon: Layout Helpers
 
+        public static SDL.FPoint ApplyHotspotOffset(SDL.FPoint original, Size hotspotOffset)
+        {
+            return new SDL.FPoint
+            {
+                X = original.X + hotspotOffset.Width,
+                Y = original.Y + hotspotOffset.Height
+            };
+        }
+
         public static Size GetMinimumSize(Control control, Size? childSize = null)
         {
             float coreWidth = childSize?.Width ?? control.MinWidth;
@@ -387,6 +401,35 @@ namespace PhotonUI
                 default:
                     return intial;
             }
+        }
+
+        public static float GetEdgeScrollHorizontal(float currentOffset, float mouseLocalX, float viewportWidth, float contentWidth, float scrollStep, float scrollMultiplier = 1f, float edgeThreshold = 0)
+        {
+            float maxOffset = Math.Max(0, contentWidth - viewportWidth);
+            if (viewportWidth <= 0 || maxOffset <= 0) return currentOffset;
+
+            float step = scrollStep * (mouseLocalX < 0 || mouseLocalX > viewportWidth ? scrollMultiplier : 1f);
+
+            if ((mouseLocalX <= edgeThreshold || mouseLocalX < 0) && currentOffset > 0)
+                return Math.Max(0, currentOffset - step);
+            if ((mouseLocalX >= viewportWidth - edgeThreshold || mouseLocalX > viewportWidth) && currentOffset < maxOffset)
+                return Math.Min(maxOffset, currentOffset + step);
+
+            return currentOffset;
+        }
+        public static float GetEdgeScrollVertical(float currentOffset, float mouseLocalY, float viewportHeight, float contentHeight, float scrollStep, float scrollMultiplier = 1f, float edgeThreshold = 0)
+        {
+            float maxOffset = Math.Max(0, contentHeight - viewportHeight);
+            if (viewportHeight <= 0 || maxOffset <= 0) return currentOffset;
+
+            float step = scrollStep * (mouseLocalY < 0 || mouseLocalY > viewportHeight ? scrollMultiplier : 1f);
+
+            if ((mouseLocalY <= edgeThreshold || mouseLocalY < 0) && currentOffset > 0)
+                return Math.Max(0, currentOffset - step);
+            if ((mouseLocalY >= viewportHeight - edgeThreshold || mouseLocalY > viewportHeight) && currentOffset < maxOffset)
+                return Math.Min(maxOffset, currentOffset + step);
+
+            return currentOffset;
         }
 
         #endregion
@@ -915,6 +958,23 @@ namespace PhotonUI
             }
 
             return lines.Count - 1;
+        }
+        public static int GetColumnFromPixelWidth(IntPtr font, string text, float targetX, FontMetrics metrics)
+        {
+            if (string.IsNullOrEmpty(text))
+                return 0;
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                float start = metrics.MeasureString(font, text[..i]).Width;
+
+                float end = metrics.MeasureString(font, text[..(i + 1)]).Width;
+
+                if (targetX >= start && targetX < end)
+                    return i;
+            }
+
+            return text.Length;
         }
 
         public static int FindCharCountWithinPixelWidth(IntPtr font, string text, int startIndex, int pixelWidth, FontMetrics metrics)
