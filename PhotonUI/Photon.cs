@@ -3,10 +3,6 @@ using PhotonUI.Extensions;
 using PhotonUI.Models;
 using PhotonUI.Models.Properties;
 using SDL3;
-using System.Diagnostics;
-using System.Numerics;
-using System.Reflection;
-using System.Text;
 
 namespace PhotonUI
 {
@@ -44,6 +40,54 @@ namespace PhotonUI
                 boundary.RequestRender(false);
                 boundary.IsBoundryDirty = true;
             }
+        }
+
+        public static Size GetScaledSize(Size controlSize, Size contentSize, StretchProperties props)
+        {
+            float targetW = contentSize.Width;
+            float targetH = contentSize.Height;
+
+            switch (props.StretchMode)
+            {
+                case StretchMode.Fill:
+                    targetW = controlSize.Width;
+                    targetH = controlSize.Height;
+                    break;
+
+                case StretchMode.Uniform:
+                    {
+                        float scale = Math.Min(controlSize.Width / contentSize.Width, controlSize.Height / contentSize.Height);
+                        targetW = contentSize.Width * scale;
+                        targetH = contentSize.Height * scale;
+                    }
+                    break;
+
+                case StretchMode.UniformToFill:
+                    {
+                        float scale = Math.Max(controlSize.Width / contentSize.Width, controlSize.Height / contentSize.Height);
+                        targetW = contentSize.Width * scale;
+                        targetH = contentSize.Height * scale;
+                    }
+                    break;
+
+                case StretchMode.None:
+                    break;
+            }
+
+            switch (props.StretchDirection)
+            {
+                case StretchDirection.UpOnly:
+                    if (targetW < contentSize.Width) targetW = contentSize.Width;
+                    if (targetH < contentSize.Height) targetH = contentSize.Height;
+                    break;
+
+                case StretchDirection.DownOnly:
+                    if (targetW > contentSize.Width) targetW = contentSize.Width;
+                    if (targetH > contentSize.Height) targetH = contentSize.Height;
+                    break;
+            }
+
+            return new Size(targetW, targetH);
         }
 
         #region Photon: Hit Testing
@@ -530,6 +574,20 @@ namespace PhotonUI
             SDL.SetTextureAlphaMod(texture, newAlpha);
 
             DrawTexture(control.Window!, texture, destination, control.Window!.BackTexture, null, clipRect);
+
+            SDL.SetTextureAlphaMod(texture, originalAlpha);
+        }
+        public static void DrawControlTexture<T>(T control, IntPtr texture, SDL.FRect destination, SDL.FRect? sourceRect = null, SDL.Rect? clipRect = null) where T : Control, IControlProperties
+        {
+            EnsureRootWindow(control);
+
+            SDL.GetTextureAlphaMod(texture, out byte originalAlpha);
+
+            byte newAlpha = (byte)(originalAlpha * control.Opacity);
+
+            SDL.SetTextureAlphaMod(texture, newAlpha);
+
+            DrawTexture(control.Window!, texture, destination, control.Window!.BackTexture, sourceRect, clipRect);
 
             SDL.SetTextureAlphaMod(texture, originalAlpha);
         }
