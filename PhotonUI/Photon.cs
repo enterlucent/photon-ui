@@ -3,6 +3,10 @@ using PhotonUI.Extensions;
 using PhotonUI.Models;
 using PhotonUI.Models.Properties;
 using SDL3;
+using System.Diagnostics;
+using System.Numerics;
+using System.Reflection;
+using System.Text;
 
 namespace PhotonUI
 {
@@ -387,6 +391,22 @@ namespace PhotonUI
 
             DrawRectangle(control.Window!, drawSurface, adjusted, control.Window?.BackTexture ?? default);
         }
+        public static void DrawControlBackground<T>(T control, ControlProperties props) where T : Control, IControlProperties
+        {
+            EnsureRootWindow(control);
+
+            SDL.Color adjusted = new()
+            {
+                R = props.BackgroundColor.R,
+                G = props.BackgroundColor.G,
+                B = props.BackgroundColor.B,
+                A = (byte)(props.BackgroundColor.A * props.Opacity)
+            };
+
+            SDL.FRect drawSurface = control.DrawRect;
+
+            DrawRectangle(control.Window!, drawSurface, adjusted, control.Window?.BackTexture ?? default);
+        }
 
         public static void DrawControlBorder<T>(T control) where T : Control, IBorderProperties, IControlProperties
         {
@@ -397,6 +417,17 @@ namespace PhotonUI
             SDL.FRect drawSurface = control.DrawRect;
 
             DrawBorder(control.Window!, drawSurface, control.BorderThickness, adjusted, control.Window!.BackTexture);
+        }
+        public static void DrawControlBorder<T>(T control, BorderProperties props, ControlProperties controlProps)
+            where T : Control, IBorderProperties
+        {
+            EnsureRootWindow(control);
+
+            BorderColors adjusted = props.BorderColors.WithOpacity(controlProps.Opacity);
+
+            SDL.FRect drawSurface = control.DrawRect;
+
+            DrawBorder(control.Window!, drawSurface, props.BorderThickness, adjusted, control.Window!.BackTexture);
         }
 
         #endregion
