@@ -9,7 +9,6 @@ using PhotonUI.Models;
 using PhotonUI.Models.Properties;
 using SDL3;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
 
