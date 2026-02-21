@@ -14,8 +14,8 @@ using System.Windows.Input;
 
 namespace PhotonUI.Controls.Input
 {
-    public partial class TextInput(IServiceProvider serviceProvider, IBindingService bindingService, IFontService fontService)
-        : TextBlockSelectable(serviceProvider, bindingService, fontService), IBorderProperties, ITextCaretProperties
+    public partial class TextInput(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService, IFontService fontService)
+        : TextBlockSelectable(serviceProvider, bindingService, keyBindingService, fontService), IBorderProperties, ITextCaretProperties
     {
         protected static readonly Random Random = new();
         protected DateTime LastInputTime;

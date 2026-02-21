@@ -12,8 +12,8 @@ using System.Numerics;
 
 namespace PhotonUI.Controls.Content
 {
-    public partial class SpriteBlock(IServiceProvider serviceProvider, IBindingService bindingService, ITextureService textureService, IClipService clipService)
-        : ImageBlock(serviceProvider, bindingService, textureService), ISpriteProperties, IClipProperties
+    public partial class SpriteBlock(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService, ITextureService textureService, IClipService clipService)
+        : ImageBlock(serviceProvider, bindingService, keyBindingService, textureService), ISpriteProperties, IClipProperties
     {
         protected readonly IClipService ClipService = clipService;
 

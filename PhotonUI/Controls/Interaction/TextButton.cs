@@ -17,8 +17,8 @@ namespace PhotonUI.Controls.Interaction
         [ObservableProperty] private BorderColors borderColors = BorderProperties.Default.BorderColors;
         [ObservableProperty] private Thickness borderThickness = BorderProperties.Default.BorderThickness;
 
-        public TextButton(IServiceProvider serviceProvider, IBindingService bindingService)
-            : base(serviceProvider, bindingService)
+        public TextButton(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
+            : base(serviceProvider, bindingService, keyBindingService)
         {
             this.TextLabel = this.Create<TextBlock>();
         }

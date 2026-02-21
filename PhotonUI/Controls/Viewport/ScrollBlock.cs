@@ -38,8 +38,8 @@ namespace PhotonUI.Controls.Viewport
 
         #endregion
 
-        public ScrollBlock(IServiceProvider serviceProvider, IBindingService bindingService)
-            : base(serviceProvider, bindingService)
+        public ScrollBlock(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
+            : base(serviceProvider, bindingService, keyBindingService)
         {
             this.ScrollbarBehavior = new(this);
         }

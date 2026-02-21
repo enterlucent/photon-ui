@@ -2,7 +2,7 @@
 
 namespace PhotonUI.Controls.Composites
 {
-    public partial class UserWindow(IServiceProvider serviceProvider, IBindingService bindingService)
-        : Window(serviceProvider, bindingService)
+    public partial class UserWindow(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
+        : Window(serviceProvider, bindingService, keyBindingService)
     { }
 }

@@ -12,8 +12,8 @@ using System.Windows.Input;
 
 namespace PhotonUI.Controls.Interaction
 {
-    public partial class ClickSurface(IServiceProvider serviceProvider, IBindingService bindingService)
-        : Border(serviceProvider, bindingService), IBorderProperties, IHoverProperties, IPressedProperties
+    public partial class ClickSurface(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
+        : Border(serviceProvider, bindingService, keyBindingService), IBorderProperties, IHoverProperties, IPressedProperties
     {
         protected bool IsHovering = false;
         protected bool IsPressed = false;

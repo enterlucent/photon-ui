@@ -8,8 +8,8 @@ using System.ComponentModel;
 
 namespace PhotonUI.Controls.Content
 {
-    public partial class ImageBlock(IServiceProvider serviceProvider, IBindingService bindingService, ITextureService textureService)
-        : Control(serviceProvider, bindingService), IImageProperties, IStretchProperties
+    public partial class ImageBlock(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService, ITextureService textureService)
+        : Control(serviceProvider, bindingService, keyBindingService), IImageProperties, IStretchProperties
     {
         protected readonly ITextureService TextureService = textureService;
 

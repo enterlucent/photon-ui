@@ -68,8 +68,8 @@ namespace PhotonUI.Controls.Content
 
         #endregion
 
-        public TextBlock(IServiceProvider serviceProvider, IBindingService bindingService, IFontService fontService)
-            : base(serviceProvider, bindingService)
+        public TextBlock(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService, IFontService fontService)
+            : base(serviceProvider, bindingService, keyBindingService)
         {
             this.FontService = fontService;
             this.ScrollbarBehavior = new(this);

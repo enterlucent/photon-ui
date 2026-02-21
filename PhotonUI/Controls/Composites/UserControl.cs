@@ -2,7 +2,7 @@
 
 namespace PhotonUI.Controls.Composites
 {
-    public abstract class UserControl(IServiceProvider serviceProvider, IBindingService bindingService)
-        : Presenter(serviceProvider, bindingService)
+    public abstract class UserControl(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
+        : Presenter(serviceProvider, bindingService, keyBindingService)
     { }
 }

@@ -11,8 +11,8 @@ namespace PhotonUI.Controls.Content
 {
     public record TextControlCaretData(int Line, int Column, int TextIndex, float PixelX, float PixelY);
 
-    public partial class TextBlockSelectable(IServiceProvider serviceProvider, IBindingService bindingService, IFontService fontService)
-        : TextBlock(serviceProvider, bindingService, fontService), ITextSelectionProperties
+    public partial class TextBlockSelectable(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService, IFontService fontService)
+        : TextBlock(serviceProvider, bindingService, keyBindingService, fontService), ITextSelectionProperties
     {
         protected Size HotspotOffset = new(0, 2);
 

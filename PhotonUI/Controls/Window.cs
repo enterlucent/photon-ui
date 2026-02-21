@@ -15,8 +15,8 @@ namespace PhotonUI.Controls
     }
     public record WindowTabStopEntry(int Stop, Control Control, int InsertionOrder);
 
-    public partial class Window(IServiceProvider serviceProvider, IBindingService bindingService)
-        : Presenter(serviceProvider, bindingService)
+    public partial class Window(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
+        : Presenter(serviceProvider, bindingService, keyBindingService)
     {
         protected WindowMode WindowMode = WindowMode.Tangible;
         protected IntPtr WindowBackTexture;
@@ -116,6 +116,10 @@ namespace PhotonUI.Controls
                     this.MouseWheelHandler(this, e);
                     this.GetMouseFocus(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
                     return;
+
+                case SDL.EventType.KeyDown:
+                    this.KeyBindingService.HandleKeyPress(e.Key.Key, e.Key.Mod, this, this.Focused);
+                    break;
 
                 case SDL.EventType.TextInput:
                     break;
@@ -222,6 +226,9 @@ namespace PhotonUI.Controls
         #endregion
 
         #region Window: Internal
+
+        public override void BindKeys(SDL.Keycode key, SDL.Keymod mod, Action action)
+            => this.KeyBindingService.RegisterForWindow(this, key, mod, action);
 
         public virtual void SetFocus(Control? control)
         {

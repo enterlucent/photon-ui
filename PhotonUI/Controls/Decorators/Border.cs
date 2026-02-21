@@ -8,8 +8,8 @@ using System.ComponentModel;
 
 namespace PhotonUI.Controls.Decorators
 {
-    public partial class Border(IServiceProvider serviceProvider, IBindingService bindingService)
-        : Presenter(serviceProvider, bindingService), IBorderProperties
+    public partial class Border(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
+        : Presenter(serviceProvider, bindingService, keyBindingService), IBorderProperties
     {
         [ObservableProperty] private BorderColors borderColors = BorderProperties.Default.BorderColors;
         [ObservableProperty] private Thickness borderThickness = BorderProperties.Default.BorderThickness;

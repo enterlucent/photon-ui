@@ -8,8 +8,8 @@ using System.ComponentModel;
 
 namespace PhotonUI.Controls.Layout
 {
-    public partial class StackBlock(IServiceProvider serviceProvider, IBindingService bindingService)
-        : Canvas(serviceProvider, bindingService), IStackProperties
+    public partial class StackBlock(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
+        : Canvas(serviceProvider, bindingService, keyBindingService), IStackProperties
     {
         [ObservableProperty] private Orientation stackOrientation = StackProperties.Default.StackOrientation;
         [ObservableProperty] private StackFillType stackFillType = StackProperties.Default.StackFillType;

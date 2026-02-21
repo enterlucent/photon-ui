@@ -7,8 +7,8 @@ using System.Collections.ObjectModel;
 
 namespace PhotonUI.Controls
 {
-    public partial class Canvas(IServiceProvider serviceProvider, IBindingService bindingService)
-        : Control(serviceProvider, bindingService)
+    public partial class Canvas(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
+        : Control(serviceProvider, bindingService, keyBindingService)
     {
         protected ObservableCollection<Control> Children = [];
 

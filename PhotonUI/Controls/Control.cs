@@ -20,11 +20,12 @@ namespace PhotonUI.Controls
         BottomUp
     }
 
-    public partial class Control(IServiceProvider serviceProvider, IBindingService bindingService)
+    public partial class Control(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
         : ObservableObject, IDisposable, IControlProperties
     {
         protected readonly IServiceProvider ServiceProvider = serviceProvider;
         protected readonly IBindingService BindingService = bindingService;
+        protected readonly IKeyBindingService KeyBindingService = keyBindingService;
 
         public Window? Window;
         public Size IntrinsicSize;
@@ -128,6 +129,8 @@ namespace PhotonUI.Controls
         public virtual void Unbind(Control target, string targetProperty)
             => this.BindingService.Unbind(target, targetProperty);
 
+        public virtual void BindKeys(SDL.Keycode key, SDL.Keymod mod, Action action)
+            => this.KeyBindingService.RegisterForControl(this, key, mod, action);
         public virtual void BindStyles<T>(Control target, bool bidirectional = false) where T : IStyleProperties
         {
             Type interfaceType = typeof(T);
