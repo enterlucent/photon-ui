@@ -56,6 +56,7 @@ namespace PhotonUI.Controls
         public string DefaultTitle { get; protected set; } = "PhotonUI";
         public Size DefaultSize { get; protected set; } = new Size(800, 600);
         public SDL.WindowFlags DefaultFlags { get; protected set; } = SDL.WindowFlags.Resizable;
+        public bool SuppressRendering { get; set; } = false;
 
         public IntPtr Handle { get; protected set; }
         public IntPtr Renderer { get; protected set; }
@@ -408,6 +409,9 @@ namespace PhotonUI.Controls
 
         protected bool NeedsRendering()
         {
+            if (this.SuppressRendering)
+                return false;
+
             bool needsRender = false;
 
             this.TunnelControls((c) =>
@@ -740,6 +744,16 @@ namespace PhotonUI.Controls
             window.IsInitialized = true;
 
             window.Child?.FrameworkInitialize(window);
+
+            this.SuppressRendering = true;
+
+            window.Tick();
+
+            this.SuppressRendering = false;
+
+            window.RequestMeasure();
+            window.RequestArrange();
+            window.RequestRender();
         }
 
         #endregion
