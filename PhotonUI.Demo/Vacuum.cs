@@ -1,9 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using PhotonUI.Controls;
-using PhotonUI.Models;
 using SDL3;
-using System.Reflection;
-using System.Runtime.InteropServices;
 
 namespace PhotonUI.Demo
 {
@@ -22,10 +19,6 @@ namespace PhotonUI.Demo
         public static void Emit(Window window)
         {
             bool quit = false;
-
-            window.Initialize("PhotonUI :: Demo", new Size(800,600), SDL.WindowFlags.Resizable);
-
-            LoadDefaultWidowIcon(window);
 
             while (!quit)
             {
@@ -72,42 +65,6 @@ namespace PhotonUI.Demo
                 SDL.DestroyWindow(window.Handle);
 
             SDL.Quit();
-        }
-
-        private static void LoadDefaultWidowIcon(Window window)
-        {
-            Stream? stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("PhotonUI.Demo.Assets.Images.photon.icon.png");
-
-            if (stream != null)
-            {
-                byte[] bytes;
-
-                using (MemoryStream ms = new())
-                {
-                    stream.CopyTo(ms);
-                    bytes = ms.ToArray();
-                }
-
-                GCHandle handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
-                try
-                {
-                    IntPtr ptr = handle.AddrOfPinnedObject();
-                    nuint size = (nuint)bytes.Length;
-
-                    IntPtr io = SDL.IOFromMem(ptr, size);
-                    IntPtr surface = Image.LoadIO(io, true);
-
-                    if (surface == IntPtr.Zero)
-                        throw new InvalidOperationException(SDL.GetError());
-
-                    SDL.SetWindowIcon(window.Handle, surface);
-                    SDL.DestroySurface(surface);
-                }
-                finally
-                {
-                    handle.Free();
-                }
-            }
         }
     }
 }

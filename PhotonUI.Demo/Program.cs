@@ -6,9 +6,12 @@ using PhotonUI.Demo;
 using PhotonUI.Demo.ViewModels;
 using PhotonUI.Demo.Views;
 using PhotonUI.Interfaces.Services;
+using PhotonUI.Models;
 using PhotonUI.Services;
 using PhotonUI.Services.Interpolators;
 using SDL3;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
 partial class Program
 {
@@ -61,6 +64,9 @@ partial class Program
         window.Name = "Window";
         window.Child = (Border)view;
         window.Child.DataContext = viewModel;
+        window.Initialize("PhotonUI :: Demo", new Size(800, 600), SDL.WindowFlags.Resizable);
+
+        LoadDefaultWidowIcon(window);
 
         Vacuum.Emit(window);
     }
@@ -71,6 +77,46 @@ partial class Program
     {
         foreach (string arg in args)
             if (string.IsNullOrEmpty(arg)) { }
+    }
+
+    #endregion
+
+    #region PhotonUI.Demo: Window Customization
+
+    private static void LoadDefaultWidowIcon(Window window)
+    {
+        Stream? stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("PhotonUI.Demo.Assets.Images.photon.icon.png");
+
+        if (stream != null)
+        {
+            byte[] bytes;
+
+            using (MemoryStream ms = new())
+            {
+                stream.CopyTo(ms);
+                bytes = ms.ToArray();
+            }
+
+            GCHandle handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+            try
+            {
+                IntPtr ptr = handle.AddrOfPinnedObject();
+                nuint size = (nuint)bytes.Length;
+
+                IntPtr io = SDL.IOFromMem(ptr, size);
+                IntPtr surface = Image.LoadIO(io, true);
+
+                if (surface == IntPtr.Zero)
+                    throw new InvalidOperationException(SDL.GetError());
+
+                SDL.SetWindowIcon(window.Handle, surface);
+                SDL.DestroySurface(surface);
+            }
+            finally
+            {
+                handle.Free();
+            }
+        }
     }
 
     #endregion
