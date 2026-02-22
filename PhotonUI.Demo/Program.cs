@@ -1,12 +1,13 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using NucleusAF.Console.ViewModel;
 using PhotonUI.Components;
 using PhotonUI.Controls;
 using PhotonUI.Controls.Decorators;
+using PhotonUI.Demo;
+using PhotonUI.Demo.ViewModels;
+using PhotonUI.Demo.Views;
 using PhotonUI.Interfaces.Services;
 using PhotonUI.Services;
 using PhotonUI.Services.Interpolators;
-using PhotonUI.Demo;
 using SDL3;
 
 partial class Program
@@ -22,7 +23,6 @@ partial class Program
         Vacuum.Excite(
             services =>
             {
-                //services.AddSingleton<IProviderFontFamily, ProviderFontDejaVuSansMono>();
                 services.AddSingleton<IFontService, FontService>();
                 services.AddSingleton<ITextureService, TextureService>();
                 services.AddSingleton<IBindingService, BindingService>();
@@ -37,13 +37,15 @@ partial class Program
 
                 services.AddTransient<MainView>();
                 services.AddTransient<MainViewModel>();
+
                 services.AddTransient<Window>();
             },
             provider =>
             {
-                window = provider.GetRequiredService<Window>();
                 view = provider.GetRequiredService<MainView>();
                 viewModel = provider.GetRequiredService<MainViewModel>();
+
+                window = provider.GetRequiredService<Window>();
 
                 if (!SDL.Init(SDL.InitFlags.Video))
                     throw new InvalidProgramException(SDL.GetError());

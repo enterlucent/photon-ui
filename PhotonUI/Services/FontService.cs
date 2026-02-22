@@ -1,9 +1,20 @@
 ﻿using PhotonUI.Interfaces.Services;
+using PhotonUI.Models.Properties;
 using SDL3;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace PhotonUI.Services
 {
+    public enum LoadFontResult
+    {
+        Success,
+        AlreadyLoaded,
+        FileNotFound,
+        ResourceNotFound,
+        Error
+    }
+
     public enum FontRenderMode
     {
         Solid,
@@ -18,6 +29,15 @@ namespace PhotonUI.Services
     {
         protected readonly Dictionary<FontKey, byte[]> FontBlobs = [];
         protected readonly Dictionary<FontInstanceKey, IntPtr> FontInstances = [];
+
+        public FontService()
+        {
+            this.LoadFont(
+                "PhotonUI.Assets.Fonts.DejaVuSanMono.DejaVuSansMono.ttf",
+                TextProperties.Default.FontFamily,
+                TextProperties.Default.FontStyle
+            );
+        }
 
         public virtual IntPtr GetFont(string familyName, string styleName, int size)
         {
@@ -52,5 +72,58 @@ namespace PhotonUI.Services
         }
         public virtual IEnumerable<string> GetFamilies() =>
             this.FontBlobs.Keys.Select(k => k.Family).Distinct();
+
+        public virtual LoadFontResult LoadFont(string path, string familyName, string styleName)
+        {
+            FontKey key = new(familyName, styleName);
+
+            if (this.FontBlobs.ContainsKey(key))
+                return LoadFontResult.AlreadyLoaded;
+
+            try
+            {
+                Stream? stream = null;
+
+                if (File.Exists(path))
+                {
+                    stream = File.OpenRead(path);
+                }
+                else
+                {
+                    Assembly? hostAssembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+
+                    if (hostAssembly != null)
+                        stream = hostAssembly.GetManifestResourceStream(path);
+
+                    if (stream == null)
+                    {
+                        Assembly libraryAssembly = typeof(FontService).Assembly;
+                        stream = libraryAssembly.GetManifestResourceStream(path);
+                    }
+
+                    if (stream == null)
+                        return LoadFontResult.ResourceNotFound;
+                }
+
+                using (stream)
+                {
+                    using (MemoryStream ms = new())
+                    {
+                        stream.CopyTo(ms);
+                        this.FontBlobs[key] = ms.ToArray();
+                    }
+                }
+
+                return LoadFontResult.Success;
+            }
+            catch (FileNotFoundException)
+            {
+                return LoadFontResult.FileNotFound;
+            }
+            catch
+            {
+                return LoadFontResult.Error;
+            }
+        }
     }
 }

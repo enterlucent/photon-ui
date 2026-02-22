@@ -23,10 +23,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<EmbeddedResource Include="Assets\Fonts\DejaVuSansMono-Bold.ttf" />
-		<EmbeddedResource Include="Assets\Fonts\DejaVuSansMono-BoldOblique.ttf" />
-		<EmbeddedResource Include="Assets\Fonts\DejaVuSansMono-Oblique.ttf" />
-		<EmbeddedResource Include="Assets\Fonts\DejaVuSansMono.ttf" />
 		<EmbeddedResource Include="Assets\Images\photon.icon.png" />
 		<EmbeddedResource Include="Assets\Images\sdl_logo.png" />
 	</ItemGroup>

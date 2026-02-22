@@ -1,16 +1,12 @@
 ﻿using PhotonUI.Controls;
 using PhotonUI.Controls.Content;
 using PhotonUI.Controls.Decorators;
-using PhotonUI.Controls.Input;
-using PhotonUI.Controls.Interaction;
-using PhotonUI.Controls.Layout;
-using PhotonUI.Controls.Viewport;
 using PhotonUI.Interfaces.Services;
 using PhotonUI.Models;
 using PhotonUI.Models.Properties;
 using SDL3;
 
-namespace PhotonUI.Demo
+namespace PhotonUI.Demo.Views
 {
     public class MainView(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService, ITextureService textureService)
         : Border(serviceProvider, bindingService, keyBindingService)
@@ -30,10 +26,12 @@ namespace PhotonUI.Demo
             this.BorderThickness = new(5);
             this.BorderColors = new BorderColors(new SDL.Color() { A = 255, R = 112, G = 128, B = 144 });
 
-            TextBlock textBlock = Create<TextBlock>();
-            //textBlock.Text = "Welcome to PhotonUI";
+            TextBlock textBlock = this.Create<TextBlock>();
+            textBlock.Text = "Welcome to PhotonUI!";
             textBlock.VerticalAlignment = VerticalAlignment.Center;
             textBlock.HorizontalAlignment = HorizontalAlignment.Center;
+            textBlock.MinHeight = 24;
+            textBlock.MinWidth = 230;
 
             this.Child = textBlock;
         }
