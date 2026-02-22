@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using PhotonUI.Controls;
+using PhotonUI.Models;
 using SDL3;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -22,7 +23,7 @@ namespace PhotonUI.Demo
         {
             bool quit = false;
 
-            window.Initialize();
+            window.Initialize("PhotonUI :: Demo", new Size(800,600), SDL.WindowFlags.Resizable);
 
             LoadDefaultWidowIcon(window);
 

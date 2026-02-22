@@ -4,6 +4,7 @@ using PhotonUI.Events.Framework;
 using PhotonUI.Events.Platform;
 using PhotonUI.Extensions;
 using PhotonUI.Interfaces.Services;
+using PhotonUI.Models;
 using SDL3;
 using System.Linq.Expressions;
 
@@ -52,6 +53,10 @@ namespace PhotonUI.Controls
 
         #region Window: Platform
 
+        public string DefaultTitle { get; protected set; } = "PhotonUI";
+        public Size DefaultSize { get; protected set; } = new Size(800, 600);
+        public SDL.WindowFlags DefaultFlags { get; protected set; } = SDL.WindowFlags.Resizable;
+
         public IntPtr Handle { get; protected set; }
         public IntPtr Renderer { get; protected set; }
 
@@ -74,8 +79,14 @@ namespace PhotonUI.Controls
             return logical;
         }
 
-        public virtual void Initialize()
-            => this.FrameworkInitialize(this);
+        public virtual void Initialize(string title, Size size, SDL.WindowFlags flags)
+        {
+            this.DefaultTitle = title;
+            this.DefaultSize = size;
+            this.DefaultFlags = flags;
+
+            this.FrameworkInitialize(this);
+        }
         public virtual void Tick()
         {
             this.ApplyTick();
@@ -694,8 +705,11 @@ namespace PhotonUI.Controls
 
             if (window.Mode == WindowMode.Tangible)
             {
-                //TODO: This needs to be replaced with argumentation or assume this is setup before hand.
-                window.Handle = SDL.CreateWindow("PhotonUI :: Demo", 800, 600, SDL.WindowFlags.Resizable);
+                window.Handle = SDL.CreateWindow(
+                    window.DefaultTitle,
+                    (int)window.DefaultSize.Width,
+                    (int)window.DefaultSize.Height,
+                    window.DefaultFlags);
 
                 if (!window.HasTangibleWindow)
                 {
