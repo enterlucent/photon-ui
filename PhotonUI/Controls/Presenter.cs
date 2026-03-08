@@ -76,7 +76,7 @@ namespace PhotonUI.Controls
             if (this.Child != null)
             {
                 // Adjust content size for child's margins and padding
-                Size childContent = content.Deflate(this.Child.MarginExtent).Deflate(this.Child.PaddingExtent);
+                Size childContent = content.Deflate(this.PaddingExtent).Deflate(this.Child.MarginExtent);
 
                 // Get the child's intrinsic size
                 this.Child.OnIntrinsic(window, childContent);
@@ -92,57 +92,21 @@ namespace PhotonUI.Controls
         {
             if (this.Child != null)
             {
-                // Get available space for child after padding
-                SDL.FRect containerRect = this.DrawRect.Deflate(this.PaddingExtent);
+                Size stretchedSize = Photon.GetStretchedSize(this, this.Child);
 
-                // Stretch within remaining space after total offsets (X + margins)
-                float stretchedW = Photon.GetStretchedWidth(
-                    this.Child.HorizontalAlignment,
-                    this.Child.IntrinsicSize.Width,
-                    containerRect.W,
-                    this.Child.X + this.Child.MarginExtent.Horizontal);
+                this.Child.DrawRect.W = stretchedSize.Width;
+                this.Child.DrawRect.H = stretchedSize.Height;
 
-                float stretchedH = Photon.GetStretchedHeight(
-                    this.Child.VerticalAlignment,
-                    this.Child.IntrinsicSize.Height,
-                    containerRect.H,
-                    this.Child.Y + this.Child.MarginExtent.Vertical);
-
-                // Set child's content size within min/max bounds
-                this.Child.DrawRect.W = Math.Clamp(stretchedW, this.Child.MinWidth, this.Child.MaxWidth);
-                this.Child.DrawRect.H = Math.Clamp(stretchedH, this.Child.MinHeight, this.Child.MaxHeight);
+                this.Child.OnMeasure(window);
             }
         }
         public override void FrameworkArrange(Window window, SDL.FPoint anchor)
         {
-            // Set position based on anchor and margins
-            this.DrawRect.X = anchor.X + this.MarginExtent.Left + this.X;
-            this.DrawRect.Y = anchor.Y + this.MarginExtent.Top + this.Y;
+            base.FrameworkArrange(window, anchor);
 
             if (this.Child != null)
             {
-                // Adjust child's position by padding
-                float childX = this.DrawRect.X + this.PaddingExtent.Left;
-                float childY = this.DrawRect.Y + this.PaddingExtent.Top;
-
-                // Calculate horizontal alignment position for child
-                float horizontalPosition =
-                    Photon.GetHorizontalAlignment(
-                        this.Child.HorizontalAlignment,
-                        childX,
-                        this.Child.DrawRect.W,
-                        this.DrawRect.W);
-
-                // Calculate vertical alignment position for child
-                float verticalPosition =
-                    Photon.GetVerticalAlignment(
-                        this.Child.VerticalAlignment,
-                        childY,
-                        this.Child.DrawRect.H,
-                        this.DrawRect.H);
-
-                // Define final anchor point for child
-                SDL.FPoint childAnchor = new() { X = horizontalPosition, Y = verticalPosition };
+                SDL.FPoint childAnchor = Photon.GetRelativePosition(this, this.Child);
 
                 // Arrange child based on computed anchor point
                 this.Child.OnArrange(window, childAnchor);

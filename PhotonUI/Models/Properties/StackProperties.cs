@@ -7,22 +7,18 @@ namespace PhotonUI.Models.Properties
         Vertical,
         Horizontal
     }
-    public enum StackFillType
-    {
-        None,
-        Equal,
-        First,
-        Last
-    }
 
     public interface IStackProperties : IStyleProperties
     {
         Orientation StackOrientation { get; }
-        StackFillType StackFillType { get; }
+        float Spacing { get; }
     }
 
-    public readonly record struct StackProperties(Orientation StackOrientation, StackFillType StackFillType) : IStackProperties
+    public readonly record struct StackProperties(Orientation StackOrientation, float Spacing) : IStackProperties
     {
-        public static StackProperties Default => new(Orientation.Vertical, StackFillType.None);
+        public static StackProperties Default => new(
+            Orientation.Vertical,
+            0
+        );
     }
 }

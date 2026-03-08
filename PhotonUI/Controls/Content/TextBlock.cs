@@ -161,7 +161,8 @@ namespace PhotonUI.Controls.Content
         }
         public override void FrameworkArrange(Window window, SDL.FPoint anchor)
         {
-            base.FrameworkArrange(window, anchor);
+            this.DrawRect.X = anchor.X + this.X;
+            this.DrawRect.Y = anchor.Y + this.Y;
 
             this.BuildLineDataCache(this.Text, this.Font, this.TextWrapType, this.ScrollbarViewport.W);
 

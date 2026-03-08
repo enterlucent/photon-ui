@@ -393,64 +393,88 @@ namespace PhotonUI
 
         public static Size GetMinimumSize(Control control, Size? childSize = null)
         {
-            float coreWidth = childSize?.Width ?? control.MinWidth;
-            float coreHeight = childSize?.Height ?? control.MinHeight;
+            // get the childs size if a child exists
+            float childWidth = childSize?.Width ?? 0;
+            float childHeight = childSize?.Height ?? 0;
 
-            float effectiveWidth = Math.Clamp(coreWidth, control.MinWidth, control.MaxWidth);
-            float effectiveHeight = Math.Clamp(coreHeight, control.MinHeight, control.MaxHeight);
+            // take the larger of the two sizes
+            float coreWidth = childWidth > control.MinWidth ? childWidth : control.MinWidth;
+            float coreHeight = childHeight > control.MinHeight ? childHeight : control.MinHeight;
 
-            float width = effectiveWidth + control.PaddingExtent.Horizontal;
-            float height = effectiveHeight + control.PaddingExtent.Vertical;
+            // inflate the size by the padding extent
+            float effectiveWidth = coreWidth + control.PaddingExtent.Horizontal;
+            float effectiveHeight = coreHeight + control.PaddingExtent.Vertical;
+
+            // camp to control constraints
+            float width = Math.Clamp(effectiveWidth, control.MinWidth, control.MaxWidth);
+            float height = Math.Clamp(effectiveHeight, control.MinHeight, control.MaxHeight);
 
             return new Size { Width = width, Height = height };
         }
 
-        public static float GetStretchedWidth(HorizontalAlignment alignment, float width, float available, float offsetX = 0)
+        public static Size GetStretchedSize(Control parent, Control child, bool allowStretchW = true, bool allowStretchH = true)
         {
-            if (alignment != HorizontalAlignment.Stretch)
-                return width;
+            // get the parents available space
+            SDL.FRect containerRect = parent.DrawRect.Deflate(parent.PaddingExtent);
 
-            float usable = available - offsetX;
-            if (usable >= width)
-                return usable;
+            // set the result to the base intrinsic size
+            Size result = new(child.IntrinsicSize.Width, child.IntrinsicSize.Height);
 
-            return width;
+            // perform width stretch if allowed
+            if (allowStretchW && child.HorizontalAlignment == HorizontalAlignment.Stretch)
+            {
+                // get width of the container minus the child's margins
+                float adjustedWidth = containerRect.W - child.MarginExtent.Horizontal;
+
+                // clamp result to constraints
+                result.Width = Math.Clamp(adjustedWidth, child.MinWidth, child.MaxWidth);
+            }
+
+            // perform height stretch if allowed
+            if (allowStretchH && child.VerticalAlignment == VerticalAlignment.Stretch)
+            {
+                // get height of the container minus the child's margins
+                float adjustedHeight = containerRect.H - child.MarginExtent.Vertical;
+
+                // clamp result to constraints
+                result.Height = Math.Clamp(adjustedHeight, child.MinHeight, child.MaxHeight);
+            }
+
+            return result;
         }
-        public static float GetStretchedHeight(VerticalAlignment alignment, float height, float available, float offsetY = 0)
+        public static SDL.FPoint GetRelativePosition(Control parent, Control child)
         {
-            if (alignment != VerticalAlignment.Stretch)
-                return height;
+            // get the parents available space
+            SDL.FRect containerRect = parent.DrawRect.Deflate(parent.PaddingExtent);
 
-            float usable = available - offsetY;
-            if (usable >= height)
-                return usable;
+            // set the result to parent container rect
+            SDL.FPoint result = new()
+            {
+                X = containerRect.X + child.MarginExtent.Left,
+                Y = containerRect.Y + child.MarginExtent.Top
+            };
 
-            return height;
-        }
-
-        public static float GetHorizontalAlignment(HorizontalAlignment alignment, float intial, float width, float availableWidth)
-        {
-            switch (alignment)
+            switch (child.HorizontalAlignment)
             {
                 case HorizontalAlignment.Center:
-                    return intial + (availableWidth - width) / 2;
+                    result.X = containerRect.X + ((containerRect.W - child.DrawRect.W) / 2) + child.MarginExtent.Left;
+                    break;
                 case HorizontalAlignment.Right:
-                    return intial + (availableWidth - width);
-                default:
-                    return intial;
+                    result.X = containerRect.X + (containerRect.W - child.DrawRect.W) - child.MarginExtent.Right;
+                    break;
             }
-        }
-        public static float GetVerticalAlignment(VerticalAlignment alignment, float intial, float height, float availableHeight)
-        {
-            switch (alignment)
+
+            switch (child.VerticalAlignment)
             {
                 case VerticalAlignment.Center:
-                    return intial + (availableHeight - height) / 2;
+                    result.Y = containerRect.Y + ((containerRect.H - child.DrawRect.H) / 2) + child.MarginExtent.Top;
+                    break;
                 case VerticalAlignment.Bottom:
-                    return intial + (availableHeight - height);
-                default:
-                    return intial;
+                    result.Y = containerRect.Y + (containerRect.H - child.DrawRect.H) - child.MarginExtent.Bottom;
+                    break;
             }
+
+            return result;
         }
 
         public static float GetEdgeScrollHorizontal(float currentOffset, float mouseLocalX, float viewportWidth, float contentWidth, float scrollStep, float scrollMultiplier = 1f, float edgeThreshold = 0)
@@ -480,67 +504,6 @@ namespace PhotonUI
                 return Math.Min(maxOffset, currentOffset + step);
 
             return currentOffset;
-        }
-
-        #endregion
-
-        #region Photon: Control Layout Helpers
-
-        public static float GetMeasuredStackWidth(IReadOnlyList<Control> children)
-        {
-            float total = 0f;
-            foreach (Control child in children)
-                if (child != null) total += child.DrawRect.W + child.MarginExtent.Horizontal;
-            return total;
-        }
-        public static float GetMeasuredStackHeight(IReadOnlyList<Control> children)
-        {
-            float total = 0f;
-            foreach (Control child in children)
-                if (child != null) total += child.DrawRect.H + child.MarginExtent.Vertical;
-            return total;
-        }
-
-        public static float ApplyHorizontalScroll(Control control, float scrollX, SDL.FRect viewport)
-        {
-            SDL.FRect scrolled = control.DrawRect;
-            float baseX = scrolled.X;
-
-            if (scrolled.W <= viewport.W)
-            {
-                scrolled.X = baseX;
-                control.DrawRect = scrolled;
-                return 0;
-            }
-            else
-            {
-                float maxScrollX = scrolled.W - viewport.W;
-                scrollX = Math.Clamp(scrollX, 0, maxScrollX);
-                scrolled.X = baseX - scrollX;
-                control.DrawRect = scrolled;
-                return scrollX;
-            }
-        }
-        public static float ApplyVerticalScroll(Control control, float scrollY, SDL.FRect viewport)
-        {
-            SDL.FRect scrolled = control.DrawRect;
-
-            float baseY = scrolled.Y;
-
-            if (scrolled.H <= viewport.H)
-            {
-                scrolled.Y = baseY;
-                control.DrawRect = scrolled;
-                return 0;
-            }
-            else
-            {
-                float maxScrollY = scrolled.H - viewport.H;
-                scrollY = Math.Clamp(scrollY, 0, maxScrollY);
-                scrolled.Y = baseY - scrollY;
-                control.DrawRect = scrolled;
-                return scrollY;
-            }
         }
 
         #endregion
