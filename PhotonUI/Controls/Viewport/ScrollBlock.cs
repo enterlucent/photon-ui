@@ -16,7 +16,7 @@ namespace PhotonUI.Controls.Viewport
     {
         protected ScrollbarBehavior<ScrollBlock> ScrollbarBehavior;
 
-        #region ScrollBox: Style Properties
+        #region ScrollBlock: Style Properties
 
         [ObservableProperty] private ScrollViewportAnchor scrollViewportAnchor = ScrollProperties.Default.ScrollViewportAnchor;
         [ObservableProperty] private ScrollDirection scrollDirection = ScrollProperties.Default.ScrollDirection;
@@ -44,7 +44,7 @@ namespace PhotonUI.Controls.Viewport
             this.ScrollbarBehavior = new(this);
         }
 
-        #region ScrollBox: Scrollbar Behavior
+        #region ScrollBlock: Scrollbar Behavior
 
         protected virtual SDL.FRect ScrollbarViewport
         {
@@ -70,7 +70,7 @@ namespace PhotonUI.Controls.Viewport
 
         #endregion
 
-        #region ScrollBox: Framework
+        #region ScrollBlock: Framework
 
         public override void ApplyStyles(params IStyleProperties[] properties)
         {
@@ -89,12 +89,30 @@ namespace PhotonUI.Controls.Viewport
             }
         }
 
+        public override void RequestRender(bool invalidate = true)
+        {
+            this.IsRenderDirty = true;
+            this.ScrollbarBehavior.RequestRender();
+
+            if (invalidate)
+                Photon.InvalidateRenderChain(this);
+        }
+        public virtual void RequestRenderWithFlags(bool scrollbarDirty = false, bool invalidate = true)
+        {
+            this.IsRenderDirty = true;
+
+            if (scrollbarDirty == true)
+                this.ScrollbarBehavior.RequestRender();
+
+            if (invalidate)
+                Photon.InvalidateRenderChain(this);
+        }
+
         public override void FrameworkIntrinsic(Window window, Size content)
         {
             if (this.Child != null)
             {
-                // Adjust content size for child's margins and padding
-                Size childContent = content.Deflate(this.Child.MarginExtent).Deflate(this.Child.PaddingExtent);
+                Size childContent = content.Deflate(this.PaddingExtent).Deflate(this.Child.MarginExtent);
 
                 // Get the child's intrinsic size
                 this.Child.OnIntrinsic(window, childContent);
@@ -105,17 +123,20 @@ namespace PhotonUI.Controls.Viewport
         }
         public override void FrameworkArrange(Window window, SDL.FPoint anchor)
         {
-            base.FrameworkArrange(window, anchor);
+            this.DrawRect.X = anchor.X + this.X;
+            this.DrawRect.Y = anchor.Y + this.Y;
 
             if (this.Child != null)
             {
-                this.ScrollX = Photon.ApplyHorizontalScroll(this.Child, this.ScrollX, this.ScrollbarViewport);
-                this.ScrollY = Photon.ApplyVerticalScroll(this.Child, this.ScrollY, this.ScrollbarViewport);
+                this.ScrollX = this.ApplyHorizontalScroll(this.Child, this.ScrollX, this.ScrollbarViewport);
+                this.ScrollY = this.ApplyVerticalScroll(this.Child, this.ScrollY, this.ScrollbarViewport);
 
                 this.ScrollbarBehavior.ExtentWidth = this.Child.DrawRect.W - this.ScrollbarViewport.W;
                 this.ScrollbarBehavior.HorizontalOffset = this.ScrollX;
                 this.ScrollbarBehavior.ExtentHeight = this.Child.DrawRect.H - this.ScrollbarViewport.H;
                 this.ScrollbarBehavior.VerticalOffset = this.ScrollY;
+
+                this.Child.OnArrange(window, new SDL.FPoint() { X = this.Child.DrawRect.X, Y = this.Child.DrawRect.Y });
             }
         }
         public override void FrameworkRender(Window window, SDL.Rect? clipRect = null)
@@ -150,7 +171,7 @@ namespace PhotonUI.Controls.Viewport
 
         #endregion
 
-        #region ScrollBox: Hooks
+        #region ScrollBlock: Hooks
 
         protected override void OnPropertyChanged(PropertyChangedEventArgs e)
         {
@@ -204,6 +225,53 @@ namespace PhotonUI.Controls.Viewport
                 case MouseExitEventArgs mouseExited:
                     mouseExited.Handled = true;
                     break;
+            }
+        }
+
+        #endregion
+
+        #region ScrollBlock: Helpers
+
+        public float ApplyHorizontalScroll(Control child, float scrollX, SDL.FRect viewport)
+        {
+            SDL.FRect scrolled = child.DrawRect;
+
+            float baseX = this.DrawRect.X;
+
+            if (scrolled.W <= viewport.W)
+            {
+                scrolled.X = baseX;
+                child.DrawRect = scrolled;
+                return 0;
+            }
+            else
+            {
+                float maxScrollX = scrolled.W - viewport.W;
+                scrollX = Math.Clamp(scrollX, 0, maxScrollX);
+                scrolled.X = baseX - scrollX;
+                child.DrawRect = scrolled;
+                return scrollX;
+            }
+        }
+        public float ApplyVerticalScroll(Control child, float scrollY, SDL.FRect viewport)
+        {
+            SDL.FRect scrolled = child.DrawRect;
+
+            float baseY = this.DrawRect.Y;
+
+            if (scrolled.H <= viewport.H)
+            {
+                scrolled.Y = baseY;
+                child.DrawRect = scrolled;
+                return 0;
+            }
+            else
+            {
+                float maxScrollY = scrolled.H - viewport.H;
+                scrollY = Math.Clamp(scrollY, 0, maxScrollY);
+                scrolled.Y = baseY - scrollY;
+                child.DrawRect = scrolled;
+                return scrollY;
             }
         }
 

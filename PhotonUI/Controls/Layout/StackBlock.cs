@@ -2,6 +2,7 @@
 using PhotonUI.Extensions;
 using PhotonUI.Interfaces;
 using PhotonUI.Interfaces.Services;
+using PhotonUI.Models;
 using PhotonUI.Models.Properties;
 using SDL3;
 using System.ComponentModel;
@@ -12,7 +13,7 @@ namespace PhotonUI.Controls.Layout
         : Canvas(serviceProvider, bindingService, keyBindingService), IStackProperties
     {
         [ObservableProperty] private Orientation stackOrientation = StackProperties.Default.StackOrientation;
-        [ObservableProperty] private StackFillType stackFillType = StackProperties.Default.StackFillType;
+        [ObservableProperty] private float spacing = StackProperties.Default.Spacing;
 
         #region StackPanel: Framework
 
@@ -33,140 +34,107 @@ namespace PhotonUI.Controls.Layout
             }
         }
 
+        public override void FrameworkIntrinsic(Window window, Size content)
+        {
+            bool isHorizontal = this.StackOrientation == Orientation.Horizontal;
+
+            float totalStackSize = 0f;
+            float maxCrossSize = 0f;
+
+            foreach (Control child in this.Children)
+            {
+                if (child == null) continue;
+
+                Size childContent = content.Deflate(child.PaddingExtent);
+
+                child.OnIntrinsic(window, childContent);
+
+                float stackSize = isHorizontal ? child.IntrinsicSize.Width : child.IntrinsicSize.Height;
+                float crossSize = isHorizontal ? child.IntrinsicSize.Height : child.IntrinsicSize.Width;
+                float stackMargin = isHorizontal ? child.MarginExtent.Horizontal : child.MarginExtent.Vertical;
+
+                totalStackSize += stackSize + stackMargin + this.Spacing;
+                maxCrossSize = Math.Max(maxCrossSize, crossSize);
+            }
+
+            totalStackSize -= this.Spacing;
+
+            Size stackContent = isHorizontal
+                ? new Size(totalStackSize, maxCrossSize)
+                : new Size(maxCrossSize, totalStackSize);
+
+            this.IntrinsicSize = Photon.GetMinimumSize(this, stackContent);
+        }
         public override void FrameworkMeasure(Window window)
         {
-            SDL.FRect contentRect = this.DrawRect.Deflate(this.PaddingExtent);
-
             bool isHorizontal = this.StackOrientation == Orientation.Horizontal;
 
             foreach (Control child in this.Children)
             {
                 if (child == null) continue;
 
-                float stackSize = isHorizontal ? child.IntrinsicSize.Width : child.IntrinsicSize.Height;
+                bool allowStretchW = !isHorizontal;
+                bool allowStretchH = isHorizontal;
 
-                float crossAvailable = isHorizontal ? contentRect.H : contentRect.W;
-
-                float crossOffset = isHorizontal
-                    ? child.Y + child.MarginExtent.Vertical
-                    : child.X + child.MarginExtent.Horizontal;
-
-                float crossSize = isHorizontal
-                    ? Photon.GetStretchedHeight(child.VerticalAlignment, child.IntrinsicSize.Height, crossAvailable, crossOffset)
-                    : Photon.GetStretchedWidth(child.HorizontalAlignment, child.IntrinsicSize.Width, crossAvailable, crossOffset);
+                Size stretched = Photon.GetStretchedSize(this, child, allowStretchW, allowStretchH);
 
                 if (isHorizontal)
                 {
-                    child.DrawRect.W = Math.Clamp(stackSize, child.MinWidth, child.MaxWidth);
-                    child.DrawRect.H = Math.Clamp(crossSize, child.MinHeight, child.MaxHeight);
+                    child.DrawRect.W = child.IntrinsicSize.Width;
+                    child.DrawRect.H = stretched.Height;
                 }
                 else
                 {
-                    child.DrawRect.W = Math.Clamp(crossSize, child.MinWidth, child.MaxWidth);
-                    child.DrawRect.H = Math.Clamp(stackSize, child.MinHeight, child.MaxHeight);
-                }
-            }
-
-            int validChildCount = this.Children.Count(c => c != null);
-
-            float totalAvailableSize = isHorizontal
-                ? (contentRect.W)
-                : (contentRect.H);
-
-            float totalContentSize = 0f;
-
-            foreach (Control child in this.Children)
-            {
-                if (child == null) continue;
-
-                float stackSize = isHorizontal ? child.DrawRect.W : child.DrawRect.H;
-                float stackMargin = isHorizontal
-                    ? child.MarginExtent.Horizontal
-                    : child.MarginExtent.Vertical;
-
-                totalContentSize += stackSize + stackMargin;
-            }
-
-            int index = 0;
-            float dummyOffset = 0f;
-
-            foreach (Control child in this.Children)
-            {
-                if (child == null)
-                {
-                    index++;
-
-                    continue;
+                    child.DrawRect.W = stretched.Width;
+                    child.DrawRect.H = child.IntrinsicSize.Height;
                 }
 
-                switch (this.StackFillType)
-                {
-                    case StackFillType.None:
-                        dummyOffset += this.MeasureStackItemNone(child);
-                        break;
-
-                    case StackFillType.Equal:
-                        dummyOffset += this.MeasureStackItemEqual(child, totalAvailableSize, totalContentSize, validChildCount);
-                        break;
-
-                    case StackFillType.First:
-                        dummyOffset += this.MeasureStackItemFillIndex(child, totalAvailableSize, totalContentSize, validChildCount, 0);
-                        break;
-
-                    case StackFillType.Last:
-                        dummyOffset += this.MeasureStackItemFillIndex(child, totalAvailableSize, totalContentSize, validChildCount, validChildCount - 1);
-                        break;
-                }
-
-                index++;
+                child.OnMeasure(window);
             }
         }
         public override void FrameworkArrange(Window window, SDL.FPoint anchor)
         {
-            this.DrawRect.X = anchor.X + this.MarginExtent.Left + this.X;
-            this.DrawRect.Y = anchor.Y + this.MarginExtent.Top + this.Y;
+            this.DrawRect.X = anchor.X + this.X;
+            this.DrawRect.Y = anchor.Y + this.Y;
 
-            SDL.FPoint contentStart = new()
-            {
-                X = this.DrawRect.X + this.PaddingExtent.Left,
-                Y = this.DrawRect.Y + this.PaddingExtent.Top
-            };
-
+            bool isHorizontal = this.StackOrientation == Orientation.Horizontal;
             float offset = 0f;
+
+            SDL.FRect contentRect = this.DrawRect.Deflate(this.PaddingExtent);
 
             foreach (Control child in this.Children)
             {
                 if (child == null) continue;
 
-                float horizontalPosition = 0;
-                float verticalPosition = 0;
+                float crossX = contentRect.X + child.MarginExtent.Left;
+                float crossY = contentRect.Y + child.MarginExtent.Top;
 
-                switch (this.StackFillType)
+                if (isHorizontal && child.VerticalAlignment != VerticalAlignment.Top)
                 {
-                    case StackFillType.None:
-                        offset = this.ArrangeStackItemNone(child, contentStart, offset, out horizontalPosition, out verticalPosition);
-                        break;
-
-                    case StackFillType.Equal:
-                        offset = this.ArrangeStackItemEqual(child, contentStart, offset, out horizontalPosition, out verticalPosition);
-                        break;
-
-                    case StackFillType.First:
-                        offset = this.ArrangeStackItemFillIndex(child, contentStart, offset, out horizontalPosition, out verticalPosition);
-                        break;
-
-                    case StackFillType.Last:
-                        offset = this.ArrangeStackItemFillIndex(child, contentStart, offset, out horizontalPosition, out verticalPosition);
-                        break;
+                    if (child.VerticalAlignment == VerticalAlignment.Center)
+                        crossY += (contentRect.H - child.DrawRect.H) / 2;
+                    else if (child.VerticalAlignment == VerticalAlignment.Bottom)
+                        crossY += contentRect.H - child.DrawRect.H - child.MarginExtent.Bottom;
+                }
+                else if (!isHorizontal && child.HorizontalAlignment != HorizontalAlignment.Left)
+                {
+                    if (child.HorizontalAlignment == HorizontalAlignment.Center)
+                        crossX += (contentRect.W - child.DrawRect.W) / 2;
+                    else if (child.HorizontalAlignment == HorizontalAlignment.Right)
+                        crossX += contentRect.W - child.DrawRect.W - child.MarginExtent.Right;
                 }
 
                 SDL.FPoint childAnchor = new()
                 {
-                    X = horizontalPosition,
-                    Y = verticalPosition
+                    X = crossX + (isHorizontal ? offset : 0),
+                    Y = crossY + (isHorizontal ? 0 : offset)
                 };
 
                 child.OnArrange(window, childAnchor);
+
+                offset += (isHorizontal ? child.DrawRect.W : child.DrawRect.H) +
+                          (isHorizontal ? child.MarginExtent.Horizontal : child.MarginExtent.Vertical) +
+                          this.Spacing;
             }
         }
 
@@ -191,7 +159,6 @@ namespace PhotonUI.Controls.Layout
             switch (e.PropertyName)
             {
                 case nameof(this.StackOrientation):
-                case nameof(this.StackFillType):
                     invalidateMeasure = true;
                     invalidateLayout = true;
                     invalidateRender = true;
@@ -206,155 +173,6 @@ namespace PhotonUI.Controls.Layout
 
             if (invalidateRender)
                 this.RequestRender();
-        }
-
-        #endregion
-
-        #region StackPanel: Helpers
-
-        private float MeasureStackItemNone(Control child)
-        {
-            bool isHorizontal = this.StackOrientation == Orientation.Horizontal;
-
-            float childStackSize = isHorizontal ? child.DrawRect.W : child.DrawRect.H;
-            float childStackMargin = isHorizontal
-                ? child.MarginExtent.Horizontal
-                : child.MarginExtent.Vertical;
-
-            return childStackSize + childStackMargin;
-        }
-        private float MeasureStackItemEqual(Control child, float totalAvailableSize, float totalContentSize, int validChildCount)
-        {
-            bool isHorizontal = this.StackOrientation == Orientation.Horizontal;
-
-            float extraPerChild = validChildCount > 0
-                ? (totalAvailableSize - totalContentSize) / validChildCount
-                : 0;
-
-            float childNaturalSize = isHorizontal ? child.DrawRect.W : child.DrawRect.H;
-            float targetStackSize = childNaturalSize + extraPerChild;
-
-            if (isHorizontal)
-            {
-                child.DrawRect.W = Math.Clamp(targetStackSize, child.MinWidth, child.MaxWidth);
-            }
-            else
-            {
-                child.DrawRect.H = Math.Clamp(targetStackSize, child.MinHeight, child.MaxHeight);
-            }
-
-            float childStackSize = isHorizontal ? child.DrawRect.W : child.DrawRect.H;
-            float childStackMargin = isHorizontal
-                ? child.MarginExtent.Horizontal
-                : child.MarginExtent.Vertical;
-
-            return childStackSize + childStackMargin;
-        }
-        private float MeasureStackItemFillIndex(Control child, float totalAvailableSize, float totalContentSize, int validChildCount, int targetIndex)
-        {
-            bool isHorizontal = this.StackOrientation == Orientation.Horizontal;
-
-            float extraForTarget = validChildCount > 0
-                ? (totalAvailableSize - totalContentSize)
-                : 0;
-
-            int childIndex = this.Children.IndexOf(child);
-
-            if (childIndex == targetIndex)
-            {
-                float childNaturalSize = isHorizontal ? child.DrawRect.W : child.DrawRect.H;
-                float targetStackSize = childNaturalSize + extraForTarget;
-
-                if (isHorizontal)
-                {
-                    child.DrawRect.W = Math.Clamp(targetStackSize, child.MinWidth, child.MaxWidth);
-                }
-                else
-                {
-                    child.DrawRect.H = Math.Clamp(targetStackSize, child.MinHeight, child.MaxHeight);
-                }
-            }
-
-            float childStackSize = isHorizontal ? child.DrawRect.W : child.DrawRect.H;
-            float childStackMargin = isHorizontal
-                ? child.MarginExtent.Horizontal
-                : child.MarginExtent.Vertical;
-
-            return childStackSize + childStackMargin;
-        }
-
-        private float ArrangeStackItemNone(Control child, SDL.FPoint contentStart, float offset, out float horizontalPosition, out float verticalPosition)
-        {
-            bool isHorizontal = this.StackOrientation == Orientation.Horizontal;
-
-            float baseX = isHorizontal ? contentStart.X + offset : contentStart.X;
-            float baseY = !isHorizontal ? contentStart.Y + offset : contentStart.Y;
-
-            float containerW = this.DrawRect.W - this.PaddingExtent.Horizontal;
-            float containerH = this.DrawRect.H - this.PaddingExtent.Vertical;
-
-            horizontalPosition = Photon.GetHorizontalAlignment(
-                child.HorizontalAlignment, baseX, child.DrawRect.W, containerW);
-
-            verticalPosition = Photon.GetVerticalAlignment(
-                child.VerticalAlignment, baseY, child.DrawRect.H, containerH);
-
-            float childStackSize = isHorizontal ? child.DrawRect.W : child.DrawRect.H;
-            float childStackMargin = isHorizontal
-                ? child.MarginExtent.Horizontal
-                : child.MarginExtent.Vertical;
-
-            offset += childStackSize + childStackMargin;
-
-            return offset;
-        }
-        private float ArrangeStackItemEqual(Control child, SDL.FPoint contentStart, float offset, out float horizontalPosition, out float verticalPosition)
-        {
-            bool isHorizontal = this.StackOrientation == Orientation.Horizontal;
-
-            float baseX = isHorizontal ? contentStart.X + offset : contentStart.X;
-            float baseY = !isHorizontal ? contentStart.Y + offset : contentStart.Y;
-
-            float containerW = this.DrawRect.W - this.PaddingExtent.Horizontal;
-            float containerH = this.DrawRect.H - this.PaddingExtent.Vertical;
-
-            horizontalPosition = Photon.GetHorizontalAlignment(
-                child.HorizontalAlignment, baseX, child.DrawRect.W, containerW);
-            verticalPosition = Photon.GetVerticalAlignment(
-                child.VerticalAlignment, baseY, child.DrawRect.H, containerH);
-
-            float childStackSize = isHorizontal ? child.DrawRect.W : child.DrawRect.H;
-            float childStackMargin = isHorizontal
-                ? child.MarginExtent.Horizontal
-                : child.MarginExtent.Vertical;
-
-            offset += childStackSize + childStackMargin;
-
-            return offset;
-        }
-        private float ArrangeStackItemFillIndex(Control child, SDL.FPoint contentStart, float offset, out float horizontalPosition, out float verticalPosition)
-        {
-            bool isHorizontal = this.StackOrientation == Orientation.Horizontal;
-
-            float baseX = isHorizontal ? contentStart.X + offset : contentStart.X;
-            float baseY = !isHorizontal ? contentStart.Y + offset : contentStart.Y;
-
-            float containerW = this.DrawRect.W - this.PaddingExtent.Horizontal;
-            float containerH = this.DrawRect.H - this.PaddingExtent.Vertical;
-
-            horizontalPosition = Photon.GetHorizontalAlignment(
-                child.HorizontalAlignment, baseX, child.DrawRect.W, containerW);
-            verticalPosition = Photon.GetVerticalAlignment(
-                child.VerticalAlignment, baseY, child.DrawRect.H, containerH);
-
-            float childStackSize = isHorizontal ? child.DrawRect.W : child.DrawRect.H;
-            float childStackMargin = isHorizontal
-                ? child.MarginExtent.Horizontal
-                : child.MarginExtent.Vertical;
-
-            offset += childStackSize + childStackMargin;
-
-            return offset;
         }
 
         #endregion

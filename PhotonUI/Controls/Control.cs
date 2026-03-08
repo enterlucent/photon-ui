@@ -354,9 +354,8 @@ namespace PhotonUI.Controls
         public virtual void FrameworkMeasure(Window window) { }
         public virtual void FrameworkArrange(Window window, SDL.FPoint anchor)
         {
-            // Update our location by extending to the margins
-            this.DrawRect.X = anchor.X + this.MarginExtent.Left + this.X;
-            this.DrawRect.Y = anchor.Y + this.MarginExtent.Top + this.Y;
+            this.DrawRect.X = anchor.X + this.X;
+            this.DrawRect.Y = anchor.Y + this.Y;
         }
         public virtual void FrameworkLateTick(Window window) { }
         public virtual void FrameworkRender(Window window, SDL.Rect? clipRect)

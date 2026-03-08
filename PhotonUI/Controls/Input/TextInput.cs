@@ -123,8 +123,6 @@ namespace PhotonUI.Controls.Input
         {
             if (this.GrowsWithInput)
             {
-                Size intrinsic = this.IntrinsicSize;
-
                 float height = Photon.GetControlLinePixelHeight(this.LineDataCache);
                 float clampedHeight = Math.Clamp(height, this.MinHeight, this.MaxHeight);
 
