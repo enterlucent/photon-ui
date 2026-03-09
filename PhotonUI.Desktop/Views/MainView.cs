@@ -8,8 +8,8 @@ using SDL3;
 
 namespace PhotonUI.Demo.Views
 {
-    public class MainView(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService, ITextureService textureService)
-        : Border(serviceProvider, bindingService, keyBindingService)
+    public class MainView(IServiceProvider serviceProvider, IBindingService bindingService, ITextureService textureService)
+        : Border(serviceProvider, bindingService)
     {
         protected readonly ITextureService TexureService = textureService;
 

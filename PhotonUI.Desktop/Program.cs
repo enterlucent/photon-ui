@@ -29,7 +29,6 @@ partial class Program
                 services.AddSingleton<IFontService, FontService>();
                 services.AddSingleton<ITextureService, TextureService>();
                 services.AddSingleton<IBindingService, BindingService>();
-                services.AddSingleton<IKeyBindingService, KeyBindingService>();
                 services.AddSingleton<IClipService, ClipService>();
 
                 services.AddSingleton<IInterpolator, IntInterpolator>();
@@ -38,14 +37,14 @@ partial class Program
                 services.AddSingleton<IInterpolatorService, InterpolatorService>();
                 services.AddSingleton<IAnimationBuilder, AnimationBuilder>();
 
-                services.AddTransient<MainView>();
+                services.AddTransient<TestView>();
                 services.AddTransient<MainViewModel>();
 
                 services.AddTransient<Window>();
             },
             provider =>
             {
-                view = provider.GetRequiredService<MainView>();
+                view = provider.GetRequiredService<TestView>();
                 viewModel = provider.GetRequiredService<MainViewModel>();
 
                 window = provider.GetRequiredService<Window>();
