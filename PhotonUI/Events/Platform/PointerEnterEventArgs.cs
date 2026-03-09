@@ -3,10 +3,10 @@ using SDL3;
 
 namespace PhotonUI.Events.Platform
 {
-    public class MouseExitEventArgs(Window window, Control exited, SDL.Event e)
+    public class PointerEnterEventArgs(Window window, Control entered, SDL.Event e)
         : PlatformEventArgs(e)
     {
         public Window Window = window;
-        public Control Exited = exited;
+        public Control Entered = entered;
     }
 }

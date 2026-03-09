@@ -2,10 +2,10 @@
 
 namespace PhotonUI.Events.Framework
 {
-    public class MouseReleased(Window window, Control released)
+    public class PointerCaptured(Window window, Control captured)
         : FrameworkEventArgs
     {
         public Window Window = window;
-        public Control Released = released;
+        public Control Captured = captured;
     }
 }

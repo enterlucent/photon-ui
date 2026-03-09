@@ -10,11 +10,11 @@ namespace PhotonUI.Behaviors
         void OnScrollbarUpdated(ScrollContext context);
     }
 
-    public class ScrollbarBehavior<T>(T control) where T : Control, IScrollHandler, IScrollProperties
+    public class ScrollBehavior<T>(T control) where T : Control, IScrollHandler, IScrollProperties
     {
         protected T Control = control;
 
-        protected ulong MouseDownTicks;
+        protected ulong PointerDownTicks;
 
         protected bool IsScrollDirty = true;
         protected IntPtr TextureCache = IntPtr.Zero;
@@ -160,12 +160,12 @@ namespace PhotonUI.Behaviors
 
         #region ScrollbarBehavior: Input Handlers
 
-        protected virtual void HandleMouseDown(SDL.Event e)
+        protected virtual void HandlePointerDown(SDL.Event e)
         {
             float px = e.Button.X;
             float py = e.Button.Y;
 
-            this.MouseDownTicks = SDL.GetTicks();
+            this.PointerDownTicks = SDL.GetTicks();
 
             this.IsVerticalCaretDown = false;
             this.WasVerticalTrackClicked = false;
@@ -176,7 +176,7 @@ namespace PhotonUI.Behaviors
             {
                 this.IsVerticalCaretDown = true;
 
-                this.Control.Window?.CaptureMouse(this.Control);
+                this.Control.Window?.CapturePointer(this.Control);
 
                 return;
             }
@@ -188,7 +188,7 @@ namespace PhotonUI.Behaviors
             }
             if (this.HorizontalCaretRect.HasValue && Photon.HitTest(this.HorizontalCaretRect.Value, px, py))
             {
-                this.Control.Window?.CaptureMouse(this.Control);
+                this.Control.Window?.CapturePointer(this.Control);
 
                 this.IsHorizontalCaretDown = true;
 
@@ -201,7 +201,7 @@ namespace PhotonUI.Behaviors
                 return;
             }
         }
-        protected virtual void HandleMouseMotion(SDL.Event e)
+        protected virtual void HandlePointerMotion(SDL.Event e)
         {
             float px = e.Motion.X;
             float py = e.Motion.Y;
@@ -247,9 +247,9 @@ namespace PhotonUI.Behaviors
                 this.Control.OnScrollbarUpdated(context);
             }
         }
-        protected virtual void HandleMouseUp(SDL.Event e)
+        protected virtual void HandlePointerUp(SDL.Event e)
         {
-            ulong elapsed = SDL.GetTicks() - this.MouseDownTicks;
+            ulong elapsed = SDL.GetTicks() - this.PointerDownTicks;
 
             if (elapsed < 200)
             {
@@ -292,14 +292,14 @@ namespace PhotonUI.Behaviors
                 }
             }
 
-            this.Control?.Window?.ReleaseMouse();
+            this.Control?.Window?.ReleasePointer();
 
             this.IsVerticalCaretDown = false;
             this.WasVerticalTrackClicked = false;
             this.IsHorizontalCaretDown = false;
             this.WasHorizontalTrackClicked = false;
         }
-        protected virtual void HandleMouseWheel(SDL.Event e)
+        protected virtual void HandlePointerWheel(SDL.Event e)
         {
             int wheelY = (int)e.Wheel.Y;
 
@@ -383,16 +383,16 @@ namespace PhotonUI.Behaviors
             switch (e.Type)
             {
                 case (uint)SDL.EventType.MouseButtonDown:
-                    this.HandleMouseDown(e);
+                    this.HandlePointerDown(e);
                     break;
                 case (uint)SDL.EventType.MouseMotion:
-                    this.HandleMouseMotion(e);
+                    this.HandlePointerMotion(e);
                     break;
                 case (uint)SDL.EventType.MouseButtonUp:
-                    this.HandleMouseUp(e);
+                    this.HandlePointerUp(e);
                     break;
                 case (uint)SDL.EventType.MouseWheel:
-                    this.HandleMouseWheel(e);
+                    this.HandlePointerWheel(e);
                     break;
             }
         }
