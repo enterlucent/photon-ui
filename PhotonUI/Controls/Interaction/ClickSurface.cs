@@ -12,21 +12,14 @@ using System.Windows.Input;
 
 namespace PhotonUI.Controls.Interaction
 {
-    public partial class ClickSurface(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
-        : Border(serviceProvider, bindingService, keyBindingService), IBorderProperties, IHoverProperties, IPressedProperties
+    public partial class ClickSurface(IServiceProvider serviceProvider, IBindingService bindingService)
+        : Border(serviceProvider, bindingService), IBorderProperties, IPressedProperties
     {
         protected bool IsHovering = false;
         protected bool IsPressed = false;
 
         [ObservableProperty] private BorderColors borderColors = BorderProperties.Default.BorderColors;
         [ObservableProperty] private Thickness borderThickness = BorderProperties.Default.BorderThickness;
-
-        [ObservableProperty] private SDL.Color hoverBackgroundColor = HoverProperties.Default.HoverBackgroundColor;
-        [ObservableProperty] private BorderColors hoverBorderColors = HoverProperties.Default.HoverBorderColors;
-        [ObservableProperty] private Thickness hoverBorderThickness = HoverProperties.Default.HoverBorderThickness;
-        [ObservableProperty] private SDL.Color hoverTextColor = HoverProperties.Default.HoverTextColor;
-        [ObservableProperty] private float hoverOpacity = HoverProperties.Default.HoverOpacity;
-        [ObservableProperty] private float hoverScale = HoverProperties.Default.HoverScale;
 
         [ObservableProperty] private SDL.Color pressedBackgroundColor = PressedProperties.Default.PressedBackgroundColor;
         [ObservableProperty] private BorderColors pressedBorderColors = PressedProperties.Default.PressedBorderColors;
@@ -35,7 +28,7 @@ namespace PhotonUI.Controls.Interaction
         [ObservableProperty] private float pressedOpacity = PressedProperties.Default.PressedOpacity;
         [ObservableProperty] private float pressedScale = PressedProperties.Default.PressedScale;
 
-        public Action<MouseClickEventArgs>? OnClickAction { get; set; }
+        public Action<PointerClickEventArgs>? OnClickAction { get; set; }
 
         public ICommand? OnClick { get; set; }
 
@@ -52,10 +45,6 @@ namespace PhotonUI.Controls.Interaction
                 switch (prop)
                 {
                     case IBorderProperties props:
-                        this.ApplyProperties(props);
-                        break;
-
-                    case IHoverProperties props:
                         this.ApplyProperties(props);
                         break;
 
@@ -99,45 +88,45 @@ namespace PhotonUI.Controls.Interaction
 
             switch (e)
             {
-                case MouseEnterEventArgs:
+                case PointerEnterEventArgs:
                     this.IsHovering = true;
                     this.RequestRender();
                     e.Handled = true;
                     break;
 
-                case MouseExitEventArgs:
+                case PointerExitEventArgs:
                     this.IsHovering = false;
                     this.RequestRender();
                     e.Handled = true;
                     break;
             }
 
-            if (e is not MouseClickEventArgs mouseClick) return;
+            if (e is not PointerClickEventArgs pointerPress) return;
 
-            switch (mouseClick.NativeEvent.Type)
+            switch (pointerPress.NativeEvent.Type)
             {
                 case (uint)SDL.EventType.MouseButtonDown:
-                    if (mouseClick.Clicked == this || this.IsDescendant(mouseClick.Clicked))
+                    if (pointerPress.Clicked == this || this.IsDescendant(pointerPress.Clicked))
                     {
                         this.IsPressed = true;
                         this.RequestRender();
-                        window.CaptureMouse(this);
+                        window.CapturePointer(this);
                         e.Handled = true;
                     }
                     break;
 
                 case (uint)SDL.EventType.MouseButtonUp:
-                    if (mouseClick.Clicked == this || this.IsDescendant(mouseClick.Clicked))
+                    if (pointerPress.Clicked == this || this.IsDescendant(pointerPress.Clicked))
                     {
                         if (this.IsHovering && this.IsPressed)
                         {
-                            this.OnClick?.Execute(mouseClick);
-                            this.OnClickAction?.Invoke(mouseClick);
+                            this.OnClick?.Execute(pointerPress);
+                            this.OnClickAction?.Invoke(pointerPress);
                         }
 
                         this.IsPressed = false;
                         this.RequestRender();
-                        window.ReleaseMouse();
+                        window.ReleasePointer();
                         e.Handled = true;
                     }
                     break;
@@ -156,10 +145,6 @@ namespace PhotonUI.Controls.Interaction
             {
                 return props with { BackgroundColor = this.PressedBackgroundColor };
             }
-            else if (this.IsHovering)
-            {
-                return props with { BackgroundColor = this.HoverBackgroundColor };
-            }
 
             return props;
         }
@@ -173,14 +158,6 @@ namespace PhotonUI.Controls.Interaction
                 {
                     BorderColors = this.PressedBorderColors,
                     BorderThickness = this.PressedBorderThickness
-                };
-            }
-            else if (this.IsHovering)
-            {
-                return props with
-                {
-                    BorderColors = this.HoverBorderColors,
-                    BorderThickness = this.HoverBorderThickness
                 };
             }
 

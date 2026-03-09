@@ -2,9 +2,9 @@
 using PhotonUI.Components;
 using PhotonUI.Controls;
 using PhotonUI.Controls.Decorators;
-using PhotonUI.Demo;
-using PhotonUI.Demo.ViewModels;
-using PhotonUI.Demo.Views;
+using PhotonUI.Desktop;
+using PhotonUI.Desktop.ViewModels;
+using PhotonUI.Desktop.Views;
 using PhotonUI.Interfaces.Services;
 using PhotonUI.Models;
 using PhotonUI.Services;
@@ -37,14 +37,14 @@ partial class Program
                 services.AddSingleton<IInterpolatorService, InterpolatorService>();
                 services.AddSingleton<IAnimationBuilder, AnimationBuilder>();
 
-                services.AddTransient<TestView>();
+                services.AddTransient<MainView>();
                 services.AddTransient<MainViewModel>();
 
                 services.AddTransient<Window>();
             },
             provider =>
             {
-                view = provider.GetRequiredService<TestView>();
+                view = provider.GetRequiredService<MainView>();
                 viewModel = provider.GetRequiredService<MainViewModel>();
 
                 window = provider.GetRequiredService<Window>();
@@ -70,7 +70,7 @@ partial class Program
         Vacuum.Emit(window);
     }
 
-    #region PhotonUI.Demo: Argumentation
+    #region PhotonUI.Desktop: Argumentation
 
     private static void MainArgsHandler(string[] args)
     {
@@ -80,11 +80,11 @@ partial class Program
 
     #endregion
 
-    #region PhotonUI.Demo: Window Customization
+    #region PhotonUI.Desktop: Window Customization
 
     private static void LoadDefaultWidowIcon(Window window)
     {
-        Stream? stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("PhotonUI.Demo.Assets.Images.photon.icon.png");
+        Stream? stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("PhotonUI.Desktop.Assets.Images.photon.icon.png");
 
         if (stream != null)
         {

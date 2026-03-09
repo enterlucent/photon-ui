@@ -18,36 +18,25 @@ namespace PhotonUI.Controls
     }
     public record WindowTabStopEntry(int Stop, Control Control, int InsertionOrder);
 
-    public partial class Window(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService, IAnimationBuilder animationBulder)
-        : Presenter(serviceProvider, bindingService, keyBindingService)
+    public partial class Window(IServiceProvider serviceProvider, IBindingService bindingService, IAnimationBuilder animationBulder)
+        : Presenter(serviceProvider, bindingService)
     {
         protected IAnimationBuilder AnimationBulder = animationBulder;
         protected WindowMode WindowMode = WindowMode.Tangible;
         protected IntPtr WindowBackTexture;
 
         protected Control? FocusedControl;
-        protected Control? HoveredControl;
-        protected Control? KeyboardCapturedControl;
-        protected Control? MouseCapturedControl;
+        protected Control? PointerCapturedControl;
         protected readonly List<AnimationHandle> ActiveAnimations = [];
-
-        protected readonly List<WindowTabStopEntry> TabStops = [];
-        protected int TabStopIndex = -1;
-        protected int TabStopInsertIndex = 0;
-
-        protected List<Control> PreviousHoverPath = [];
 
         public WindowMode Mode => this.WindowMode;
         public bool HasTangibleWindow => this.Mode == WindowMode.Tangible && this.Handle != IntPtr.Zero;
         public IntPtr BackTexture => this.WindowBackTexture;
 
         public Control? Focused => this.FocusedControl;
-        public Control? Hovered => this.HoveredControl;
-        public Control? CapturedMouse => this.MouseCapturedControl;
-        public Control? CapturedKeyboard => this.KeyboardCapturedControl;
+        public Control? CapturedControl => this.PointerCapturedControl;
 
         public Control KeyboardInputTarget =>
-            this.KeyboardCapturedControl ??
             this.FocusedControl ??
             this;
 
@@ -119,24 +108,15 @@ namespace PhotonUI.Controls
             switch (eventType)
             {
                 case SDL.EventType.MouseMotion:
-                    this.MouseMotionHandler(this, e);
-                    this.GetMouseFocus(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
+                    this.PointerMotionHandler(this, e);
+                    this.GetFocusedControl(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
                     return;
 
                 case SDL.EventType.MouseButtonDown:
                 case SDL.EventType.MouseButtonUp:
-                    this.MouseButtonHandler(this, e);
-                    this.GetMouseFocus(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
+                    this.PointerButtonHandler(this, e);
+                    this.GetFocusedControl(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
                     return;
-
-                case SDL.EventType.MouseWheel:
-                    this.MouseWheelHandler(this, e);
-                    this.GetMouseFocus(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
-                    return;
-
-                case SDL.EventType.KeyDown:
-                    this.KeyBindingService.HandleKeyPress(e.Key.Key, e.Key.Mod, this, this.Focused);
-                    break;
 
                 case SDL.EventType.TextInput:
                     break;
@@ -144,44 +124,6 @@ namespace PhotonUI.Controls
 
             this.KeyboardInputTarget.OnEvent(this, new PlatformEventArgs(e));
         }
-
-        protected virtual void AdvanceTabFocus(int direction)
-        {
-            if (this.TabStops.Count == 0)
-                return;
-
-            if (this.TabStopIndex == -1)
-            {
-                this.TabStopIndex = 0;
-                this.SetFocus(this.TabStops[this.TabStopIndex].Control);
-                return;
-            }
-
-            int attempts = 0;
-
-            while (attempts < this.TabStops.Count)
-            {
-                this.TabStopIndex += direction;
-
-                if (this.TabStopIndex >= this.TabStops.Count)
-                    this.TabStopIndex = 0;
-                else if (this.TabStopIndex < 0)
-                    this.TabStopIndex = this.TabStops.Count - 1;
-
-                Control next = this.TabStops[this.TabStopIndex].Control;
-
-                if (next.IsInteractable)
-                {
-                    this.SetFocus(next);
-
-                    return;
-                }
-
-                attempts++;
-            }
-        }
-        public virtual void TabStopForward() => this.AdvanceTabFocus(+1);
-        public virtual void TabStopBackward() => this.AdvanceTabFocus(-1);
 
         public void GetScreenshot(string path)
         {
@@ -230,22 +172,16 @@ namespace PhotonUI.Controls
                 { try { SDL.Free(surface); } catch { } }
             }
         }
-        public Control GetMouseFocus(SDL.MouseMotionEvent motion)
+        public Control GetFocusedControl(SDL.MouseMotionEvent motion)
         {
             Control? c = Photon.ResolveHitControl(this, motion.X, motion.Y);
 
-            return this.MouseCapturedControl ??
-                this.HoveredControl ??
-                c ??
-                this;
+            return this.PointerCapturedControl ?? c ?? this;
         }
 
         #endregion
 
         #region Window: Internal
-
-        public override void BindKeys(SDL.Keycode key, SDL.Keymod mod, Action action)
-            => this.KeyBindingService.RegisterForWindow(this, key, mod, action);
 
         public virtual void SetFocus(Control? control)
         {
@@ -254,14 +190,6 @@ namespace PhotonUI.Controls
             this.FocusedControl?.OnEvent(this, new FocusLostEventArgs(this.FocusedControl));
             this.FocusedControl = control;
             this.FocusedControl?.OnEvent(this, new FocusGainedEventArgs(this.FocusedControl));
-
-            if (control != null)
-            {
-                int idx = this.TabStops.FindIndex(x => x.Control == control);
-
-                if (idx >= 0)
-                    this.TabStopIndex = idx;
-            }
         }
         public virtual void SetWindowSize(int width, int height)
         {
@@ -283,48 +211,6 @@ namespace PhotonUI.Controls
             this.RequestMeasure();
             this.RequestArrange();
             this.RequestRender();
-        }
-        public virtual void SetTabStop(Control control, int stop)
-        {
-            ArgumentNullException.ThrowIfNull(control);
-
-            if (stop < 0)
-            {
-                this.TabStops.RemoveAll(x => x.Control == control);
-
-                if (this.TabStopIndex >= this.TabStops.Count)
-                    this.TabStopIndex = this.TabStops.Count - 1;
-
-                return;
-            }
-
-            this.TabStops.RemoveAll(x => x.Control == control);
-            this.TabStops.Add(new WindowTabStopEntry(stop, control, this.TabStopInsertIndex++));
-            this.TabStops.Sort((a, b) =>
-            {
-                int cmp = a.Stop.CompareTo(b.Stop);
-                if (cmp != 0) return cmp;
-                return b.InsertionOrder.CompareTo(a.InsertionOrder);
-            });
-
-            Control? focused = this.Focused;
-
-            if (focused != null)
-            {
-                int idx = this.TabStops.FindIndex(x => x.Control == focused);
-
-                if (idx >= 0)
-                {
-                    this.TabStopIndex = idx;
-
-                    return;
-                }
-            }
-
-            if (this.TabStops.Count > 0)
-                this.TabStopIndex = this.TabStops.Count - 1;
-            else
-                this.TabStopIndex = -1;
         }
         public virtual void SetRenderer(IntPtr renderer)
         {
@@ -361,46 +247,25 @@ namespace PhotonUI.Controls
         }
         public void CancelAllAnimations() => this.ActiveAnimations.Clear();
 
-        public virtual void CaptureMouse(Control control)
+        public virtual void CapturePointer(Control control)
         {
             ArgumentNullException.ThrowIfNull(control, nameof(control));
 
-            this.ReleaseMouse();
+            this.ReleasePointer();
 
-            this.MouseCapturedControl = control;
+            this.PointerCapturedControl = control;
 
-            control.OnEvent(this, new MouseCaptured(this, control));
+            control.OnEvent(this, new PointerCaptured(this, control));
         }
-        public virtual void ReleaseMouse()
+        public virtual void ReleasePointer()
         {
-            if (this.MouseCapturedControl == null) return;
+            if (this.PointerCapturedControl == null) return;
 
-            Control released = this.MouseCapturedControl;
+            Control released = this.PointerCapturedControl;
 
-            this.MouseCapturedControl = null;
+            this.PointerCapturedControl = null;
 
-            released.OnEvent(this, new MouseReleased(this, released));
-        }
-
-        public virtual void CaptureKeyboard(Control control)
-        {
-            ArgumentNullException.ThrowIfNull(control, nameof(control));
-
-            this.ReleaseKeyboard();
-
-            this.KeyboardCapturedControl = control;
-
-            control.OnEvent(this, new KeyboardCaptured(this, control));
-        }
-        public virtual void ReleaseKeyboard()
-        {
-            if (this.KeyboardCapturedControl == null) return;
-
-            Control released = this.KeyboardCapturedControl;
-
-            this.KeyboardCapturedControl = null;
-
-            released.OnEvent(this, new KeyboardReleased(this, released));
+            released.OnEvent(this, new PointerReleased(this, released));
         }
 
         #endregion
@@ -615,7 +480,7 @@ namespace PhotonUI.Controls
 
         #region Window: Framework
 
-        protected virtual void MouseMotionHandler(Window window, SDL.Event e)
+        protected virtual void PointerMotionHandler(Window window, SDL.Event e)
         {
             if (e.Type != (uint)SDL.EventType.MouseMotion)
                 return;
@@ -623,9 +488,6 @@ namespace PhotonUI.Controls
             SDL.MouseMotionEvent motion = e.Motion;
 
             Control? target = Photon.ResolveHitControl(window, motion.X, motion.Y);
-
-            this.HoveredControl?.OnEvent(this, new FocusLostEventArgs(this.HoveredControl));
-            this.HoveredControl = null;
 
             List<Control> currentPath = target != null ? Photon.GetAncestors(target) : [];
 
@@ -635,37 +497,26 @@ namespace PhotonUI.Controls
             {
                 Control control = currentPath[i];
 
-                if (control.FocusOnHover == true && !focusSet)
+                if (!focusSet)
                 {
-                    this.HoveredControl = control;
-                    this.HoveredControl.OnEvent(this, new FocusGainedEventArgs(this.HoveredControl));
-
                     focusSet = true;
                 }
             }
-
-            foreach (Control? entered in currentPath.Except(this.PreviousHoverPath))
-                entered?.OnEvent(window, new MouseEnterEventArgs(window, entered, e));
-
-            foreach (Control? exited in this.PreviousHoverPath.Except(currentPath))
-                exited?.OnEvent(window, new MouseExitEventArgs(window, exited, e));
-
-            this.PreviousHoverPath = currentPath;
         }
-        protected virtual void MouseButtonHandler(Window window, SDL.Event e)
+        protected virtual void PointerButtonHandler(Window window, SDL.Event e)
         {
             if (e.Type != (uint)SDL.EventType.MouseButtonDown &&
                 e.Type != (uint)SDL.EventType.MouseButtonUp)
                 return;
 
-            Control target = this.GetMouseFocus(e.Motion);
+            Control target = this.GetFocusedControl(e.Motion);
 
             List<Control>? path = Photon.GetControlPath(window, c => c == target);
 
             if (target != null && path != null)
             {
                 // Preview phase
-                MouseClickEventArgs previewArgs = new(window, target, e)
+                PointerClickEventArgs previewArgs = new(window, target, e)
                 {
                     Preview = true
                 };
@@ -673,32 +524,7 @@ namespace PhotonUI.Controls
                     control?.OnEvent(window, previewArgs);
 
                 // Bubble phase
-                MouseClickEventArgs bubbleArgs = new(window, target, e);
-                target.FrameworkEventBubble(window, bubbleArgs);
-            }
-        }
-        protected virtual void MouseWheelHandler(Window window, SDL.Event e)
-        {
-            if (e.Type != (uint)SDL.EventType.MouseWheel)
-                return;
-
-            Control target = this.GetMouseFocus(e.Motion);
-
-            List<Control>? path = Photon.GetControlPath(window, c => c == target);
-
-            if (target != null && path != null)
-            {
-                // Preview phase
-                MouseWheelEventArgs previewArgs = new(window, target, e)
-                {
-                    Preview = true
-                };
-                foreach (Control control in path)
-                    control?.OnEvent(window, previewArgs);
-
-                // Bubble phase
-                MouseWheelEventArgs bubbleArgs = new(window, target, e);
-
+                PointerClickEventArgs bubbleArgs = new(window, target, e);
                 target.FrameworkEventBubble(window, bubbleArgs);
             }
         }

@@ -2,7 +2,7 @@
 using PhotonUI.Controls;
 using SDL3;
 
-namespace PhotonUI.Demo
+namespace PhotonUI.Desktop
 {
     public class Vacuum
     {

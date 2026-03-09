@@ -7,8 +7,8 @@ using SDL3;
 
 namespace PhotonUI.Controls
 {
-    public partial class Presenter(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
-        : Control(serviceProvider, bindingService, keyBindingService)
+    public partial class Presenter(IServiceProvider serviceProvider, IBindingService bindingService)
+        : Control(serviceProvider, bindingService)
     {
         [ObservableProperty] private Control? child;
 

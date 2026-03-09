@@ -19,7 +19,7 @@ namespace PhotonUI.Controls.Content
     public partial class TextBlock : Control, ITextProperties, IScrollProperties, IScrollHandler
     {
         protected readonly IFontService FontService;
-        protected readonly ScrollbarBehavior<TextBlock> ScrollbarBehavior;
+        protected readonly ScrollBehavior<TextBlock> ScrollbarBehavior;
 
         protected IntPtr Font { get; set; } = IntPtr.Zero;
         protected FontMetrics FontMetrics { get; set; } = default;
@@ -68,8 +68,8 @@ namespace PhotonUI.Controls.Content
 
         #endregion
 
-        public TextBlock(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService, IFontService fontService)
-            : base(serviceProvider, bindingService, keyBindingService)
+        public TextBlock(IServiceProvider serviceProvider, IBindingService bindingService, IFontService fontService)
+            : base(serviceProvider, bindingService)
         {
             this.FontService = fontService;
             this.ScrollbarBehavior = new(this);
@@ -306,12 +306,12 @@ namespace PhotonUI.Controls.Content
 
             switch (e)
             {
-                case MouseEnterEventArgs mouseEntered:
-                    mouseEntered.Handled = true;
+                case PointerEnterEventArgs pointerEntered:
+                    pointerEntered.Handled = true;
                     break;
 
-                case MouseExitEventArgs mouseExited:
-                    mouseExited.Handled = true;
+                case PointerExitEventArgs pointerExited:
+                    pointerExited.Handled = true;
                     break;
             }
         }

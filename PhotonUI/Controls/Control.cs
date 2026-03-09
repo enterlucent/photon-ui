@@ -20,12 +20,11 @@ namespace PhotonUI.Controls
         BottomUp
     }
 
-    public partial class Control(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
+    public partial class Control(IServiceProvider serviceProvider, IBindingService bindingService)
         : ObservableObject, IDisposable, IControlProperties
     {
         protected readonly IServiceProvider ServiceProvider = serviceProvider;
         protected readonly IBindingService BindingService = bindingService;
-        protected readonly IKeyBindingService KeyBindingService = keyBindingService;
 
         public Window? Window;
         public Size IntrinsicSize;
@@ -54,7 +53,6 @@ namespace PhotonUI.Controls
         [ObservableProperty] private float maxWidth = ControlProperties.Default.MaxWidth;
         [ObservableProperty] private float maxHeight = ControlProperties.Default.MaxHeight;
 
-        [ObservableProperty] private bool focusOnHover = ControlProperties.Default.FocusOnHover;
         [ObservableProperty] private int tabIndex = ControlProperties.Default.TabIndex;
         [ObservableProperty] private int zIndex = ControlProperties.Default.ZIndex;
 
@@ -88,11 +86,10 @@ namespace PhotonUI.Controls
         public Action<FocusGainedEventArgs>? FocusGainedAction { get; set; }
         public Action<FocusLostEventArgs>? FocusLostAction { get; set; }
 
-        public Action<MouseEnterEventArgs>? MouseEnterAction { get; set; }
-        public Action<MouseExitEventArgs>? MouseExitAction { get; set; }
+        public Action<PointerEnterEventArgs>? PointerEnterAction { get; set; }
+        public Action<PointerExitEventArgs>? PointerExitAction { get; set; }
 
-        public Action<MouseClickEventArgs>? MouseClickAction { get; set; }
-        public Action<MouseWheelEventArgs>? MouseWheelAction { get; set; }
+        public Action<PointerClickEventArgs>? PointerPressAction { get; set; }
 
         #endregion
 
@@ -129,8 +126,6 @@ namespace PhotonUI.Controls
         public virtual void Unbind(Control target, string targetProperty)
             => this.BindingService.Unbind(target, targetProperty);
 
-        public virtual void BindKeys(SDL.Keycode key, SDL.Keymod mod, Action action)
-            => this.KeyBindingService.RegisterForControl(this, key, mod, action);
         public virtual void BindStyles<T>(Control target, bool bidirectional = false) where T : IStyleProperties
         {
             Type interfaceType = typeof(T);
@@ -330,8 +325,6 @@ namespace PhotonUI.Controls
 
                 this.OnInitialize(window);
 
-                window.SetTabStop(this, this.TabIndex);
-
                 if (this.IsFocused)
                     window.SetFocus(this);
             }
@@ -511,20 +504,16 @@ namespace PhotonUI.Controls
                     this.FocusLostAction?.Invoke(focusLost);
                     break;
 
-                case MouseEnterEventArgs mouseEnter:
-                    this.MouseEnterAction?.Invoke(mouseEnter);
+                case PointerEnterEventArgs pointerEnter:
+                    this.PointerEnterAction?.Invoke(pointerEnter);
                     break;
 
-                case MouseExitEventArgs mouseExit:
-                    this.MouseExitAction?.Invoke(mouseExit);
+                case PointerExitEventArgs pointerExit:
+                    this.PointerExitAction?.Invoke(pointerExit);
                     break;
 
-                case MouseClickEventArgs mouseClick:
-                    this.MouseClickAction?.Invoke(mouseClick);
-                    break;
-
-                case MouseWheelEventArgs mouseWheel:
-                    this.MouseWheelAction?.Invoke(mouseWheel);
+                case PointerClickEventArgs pointerPress:
+                    this.PointerPressAction?.Invoke(pointerPress);
                     break;
             }
         }

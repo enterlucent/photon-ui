@@ -477,30 +477,30 @@ namespace PhotonUI
             return result;
         }
 
-        public static float GetEdgeScrollHorizontal(float currentOffset, float mouseLocalX, float viewportWidth, float contentWidth, float scrollStep, float scrollMultiplier = 1f, float edgeThreshold = 0)
+        public static float GetEdgeScrollHorizontal(float currentOffset, float pointerLocalX, float viewportWidth, float contentWidth, float scrollStep, float scrollMultiplier = 1f, float edgeThreshold = 0)
         {
             float maxOffset = Math.Max(0, contentWidth - viewportWidth);
             if (viewportWidth <= 0 || maxOffset <= 0) return currentOffset;
 
-            float step = scrollStep * (mouseLocalX < 0 || mouseLocalX > viewportWidth ? scrollMultiplier : 1f);
+            float step = scrollStep * (pointerLocalX < 0 || pointerLocalX > viewportWidth ? scrollMultiplier : 1f);
 
-            if ((mouseLocalX <= edgeThreshold || mouseLocalX < 0) && currentOffset > 0)
+            if ((pointerLocalX <= edgeThreshold || pointerLocalX < 0) && currentOffset > 0)
                 return Math.Max(0, currentOffset - step);
-            if ((mouseLocalX >= viewportWidth - edgeThreshold || mouseLocalX > viewportWidth) && currentOffset < maxOffset)
+            if ((pointerLocalX >= viewportWidth - edgeThreshold || pointerLocalX > viewportWidth) && currentOffset < maxOffset)
                 return Math.Min(maxOffset, currentOffset + step);
 
             return currentOffset;
         }
-        public static float GetEdgeScrollVertical(float currentOffset, float mouseLocalY, float viewportHeight, float contentHeight, float scrollStep, float scrollMultiplier = 1f, float edgeThreshold = 0)
+        public static float GetEdgeScrollVertical(float currentOffset, float pointerLocalY, float viewportHeight, float contentHeight, float scrollStep, float scrollMultiplier = 1f, float edgeThreshold = 0)
         {
             float maxOffset = Math.Max(0, contentHeight - viewportHeight);
             if (viewportHeight <= 0 || maxOffset <= 0) return currentOffset;
 
-            float step = scrollStep * (mouseLocalY < 0 || mouseLocalY > viewportHeight ? scrollMultiplier : 1f);
+            float step = scrollStep * (pointerLocalY < 0 || pointerLocalY > viewportHeight ? scrollMultiplier : 1f);
 
-            if ((mouseLocalY <= edgeThreshold || mouseLocalY < 0) && currentOffset > 0)
+            if ((pointerLocalY <= edgeThreshold || pointerLocalY < 0) && currentOffset > 0)
                 return Math.Max(0, currentOffset - step);
-            if ((mouseLocalY >= viewportHeight - edgeThreshold || mouseLocalY > viewportHeight) && currentOffset < maxOffset)
+            if ((pointerLocalY >= viewportHeight - edgeThreshold || pointerLocalY > viewportHeight) && currentOffset < maxOffset)
                 return Math.Min(maxOffset, currentOffset + step);
 
             return currentOffset;

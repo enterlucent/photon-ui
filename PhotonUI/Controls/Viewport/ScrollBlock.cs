@@ -14,7 +14,7 @@ namespace PhotonUI.Controls.Viewport
 {
     public partial class ScrollBlock : Presenter, IScrollProperties, IScrollHandler
     {
-        protected ScrollbarBehavior<ScrollBlock> ScrollbarBehavior;
+        protected ScrollBehavior<ScrollBlock> ScrollbarBehavior;
 
         #region ScrollBlock: Style Properties
 
@@ -38,8 +38,8 @@ namespace PhotonUI.Controls.Viewport
 
         #endregion
 
-        public ScrollBlock(IServiceProvider serviceProvider, IBindingService bindingService, IKeyBindingService keyBindingService)
-            : base(serviceProvider, bindingService, keyBindingService)
+        public ScrollBlock(IServiceProvider serviceProvider, IBindingService bindingService)
+            : base(serviceProvider, bindingService)
         {
             this.ScrollbarBehavior = new(this);
         }
@@ -218,12 +218,12 @@ namespace PhotonUI.Controls.Viewport
 
             switch (e)
             {
-                case MouseEnterEventArgs mouseEntered:
-                    mouseEntered.Handled = true;
+                case PointerEnterEventArgs pointerEntered:
+                    pointerEntered.Handled = true;
                     break;
 
-                case MouseExitEventArgs mouseExited:
-                    mouseExited.Handled = true;
+                case PointerExitEventArgs pointerExited:
+                    pointerExited.Handled = true;
                     break;
             }
         }

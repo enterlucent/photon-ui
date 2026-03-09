@@ -33,7 +33,6 @@ namespace PhotonUI.Models.Properties
         float MaxHeight { get; }
         float MaxWidth { get; }
         bool IsHitTestVisible { get; }
-        bool FocusOnHover { get; }
         int TabIndex { get; }
         int ZIndex { get; }
     }
@@ -52,7 +51,6 @@ namespace PhotonUI.Models.Properties
         float MaxHeight,
         float MaxWidth,
         bool IsHitTestVisible,
-        bool FocusOnHover,
         int TabIndex,
         int ZIndex
     ) : IControlProperties
@@ -70,7 +68,6 @@ namespace PhotonUI.Models.Properties
             0f,
             float.PositiveInfinity,
             float.PositiveInfinity,
-            true,
             true,
             -1,
             0
