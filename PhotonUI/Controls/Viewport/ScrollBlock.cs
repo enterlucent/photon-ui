@@ -178,9 +178,6 @@ namespace PhotonUI.Controls.Viewport
             if (!this.IsInitialized)
                 return;
 
-            if (this.Window == null)
-                throw new InvalidOperationException($"Control '{this.Name}' is not associated to a RootWindow.");
-
             base.OnPropertyChanged(e);
 
             bool invalidateLayout = false;

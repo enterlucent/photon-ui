@@ -63,13 +63,6 @@ namespace PhotonUI.Controls.Content
             base.RequestRender(invalidate);
         }
 
-        public override void FrameworkInitialize(Window window)
-        {
-            base.FrameworkInitialize(window);
-
-            if (this.LoadSourceTexture(window))
-                this.RebuildTexture(window);
-        }
         public override void FrameworkRender(Window window, SDL.Rect? clipRect)
         {
             if (this.IsVisible)
@@ -120,9 +113,6 @@ namespace PhotonUI.Controls.Content
             if (!this.IsInitialized)
                 return;
 
-            if (this.Window == null)
-                throw new InvalidOperationException("Image property change: RootWindow == null.");
-
             base.OnPropertyChanged(e);
 
             bool invalidateMeasure = false;
@@ -149,6 +139,14 @@ namespace PhotonUI.Controls.Content
 
             if (invalidateRender)
                 this.RequestRenderWithFlags(imageDirty: invalidateImage);
+        }
+
+        public override void OnInitialize(Window window)
+        {
+            base.OnInitialize(window);
+
+            if (this.LoadSourceTexture(window))
+                this.RebuildTexture(window);
         }
 
         public override void Dispose()

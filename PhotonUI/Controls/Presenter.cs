@@ -23,11 +23,8 @@ namespace PhotonUI.Controls
             {
                 oldValue.Parent = null;
 
-                if (IsInitialized && Window != null)
-                {
-                    FrameworkEventBubble(Window,
-                        new ChildChangedEventArgs(this, oldValue, ChildChangeAction.Removed));
-                }
+                if (this.IsInitialized)
+                    FrameworkEventBubble(Photon.GetWindow(this), new ChildChangedEventArgs(this, oldValue, ChildChangeAction.Removed));
             }
 
             if (newValue != null)
@@ -37,18 +34,15 @@ namespace PhotonUI.Controls
 
                 newValue.Parent = this;
 
-                if (IsInitialized)
+                if (this.IsInitialized)
                 {
-                    if (Window == null)
-                        throw new InvalidOperationException($"Control '{newValue.Name}' is not associated with a RootWindow.");
+                    Window window = Photon.GetWindow(newValue);
 
-                    FrameworkEventBubble(Window, new ChildChangedEventArgs(this, newValue, ChildChangeAction.Added));
+                    FrameworkEventBubble(window, new ChildChangedEventArgs(this, newValue, ChildChangeAction.Added));
 
-                    newValue.FrameworkInitialize(Window);
+                    newValue.OnInitialize(window);
                 }
             }
-
-            RequestArrange();
         }
 
         #region Presenter: Framework
@@ -142,6 +136,18 @@ namespace PhotonUI.Controls
                     Photon.ApplyControlClipRect(window, clipRect);
                 }
             }
+        }
+
+        #endregion
+
+        #region Control: Hooks
+
+        public override void OnInitialize(Window window)
+        {
+            if (!this.IsInitialized)
+                this.FrameworkInitialize(window);
+
+            this.Child?.OnInitialize(window);
         }
 
         #endregion

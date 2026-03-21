@@ -74,7 +74,7 @@ namespace PhotonUI.Controls
             this.DefaultSize = size;
             this.DefaultFlags = flags;
 
-            this.FrameworkInitialize(this);
+            this.OnInitialize(this);
         }
         public virtual void Tick()
         {
@@ -298,10 +298,7 @@ namespace PhotonUI.Controls
 
             this.Child.TunnelControls((c) =>
             {
-                if (c.Window == null)
-                    throw new InvalidOperationException($"The control {c.Name} of type {c.GetType().Name} has no window");
-
-                c.OnTick(c.Window);
+                c.OnTick(this);
                 c.TickAction?.Invoke(c);
 
                 return true;
@@ -401,10 +398,7 @@ namespace PhotonUI.Controls
 
             this.Child.TunnelControls((c) =>
             {
-                if (c.Window == null)
-                    throw new InvalidOperationException($"The control {c.Name} of type {c.GetType().Name} has no window");
-
-                c.OnLateTick(c.Window);
+                c.OnLateTick(this);
                 c.LateTickAction?.Invoke(c);
 
                 return true;
@@ -444,10 +438,7 @@ namespace PhotonUI.Controls
 
             this.Child.TunnelControls((c) =>
             {
-                if (c.Window == null)
-                    throw new InvalidOperationException($"The control {c.Name} of type {c.GetType().Name} has no window");
-
-                c.OnPostTick(c.Window);
+                c.OnPostTick(this);
                 c.PostTickAction?.Invoke(c);
 
                 return true;
@@ -461,12 +452,9 @@ namespace PhotonUI.Controls
             {
                 if (c.IsBoundryDirty)
                 {
-                    if (c.Window == null)
-                        throw new InvalidOperationException($"The control {c.Name} of type {c.GetType().Name} has no window");
-
                     SDL.FRect renderRect = FRect.Deflate(c.DrawRect, c.Margin);
 
-                    Photon.ClearRectangle(c.Window, renderRect, c.Window.BackTexture, default);
+                    Photon.ClearRectangle(this, renderRect, this.BackTexture, default);
 
                     c.IsBoundryDirty = false;
                     c.IsRenderDirty = true;
@@ -494,8 +482,6 @@ namespace PhotonUI.Controls
 
             for (int i = currentPath.Count - 1; i >= 0; i--)
             {
-                Control control = currentPath[i];
-
                 if (!focusSet)
                 {
                     focusSet = true;
@@ -528,7 +514,11 @@ namespace PhotonUI.Controls
             }
         }
 
-        public override void FrameworkInitialize(Window window)
+        #endregion
+
+        #region Control: Hooks
+
+        public override void OnInitialize(Window window)
         {
             if (window.IsInitialized == true) return;
 
@@ -563,22 +553,11 @@ namespace PhotonUI.Controls
             }
 
             window.Name = window.Name;
-            window.Window = window;
             window.HorizontalAlignment = Models.Properties.HorizontalAlignment.Stretch;
             window.VerticalAlignment = Models.Properties.VerticalAlignment.Stretch;
             window.IsInitialized = true;
 
-            window.Child?.FrameworkInitialize(window);
-
-            this.SuppressRendering = true;
-
-            window.Tick();
-
-            this.SuppressRendering = false;
-
-            window.RequestMeasure();
-            window.RequestArrange();
-            window.RequestRender();
+            window.Child?.OnInitialize(window);
         }
 
         #endregion

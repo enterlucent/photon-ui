@@ -26,7 +26,6 @@ namespace PhotonUI.Controls
         protected readonly IServiceProvider ServiceProvider = serviceProvider;
         protected readonly IBindingService BindingService = bindingService;
 
-        public Window? Window;
         public Size IntrinsicSize;
         public SDL.FRect DrawRect;
 
@@ -320,23 +319,15 @@ namespace PhotonUI.Controls
 
             if (!this.IsInitialized)
             {
-                this.Window = window;
                 this.IsInitialized = true;
 
                 this.OnInitialize(window);
 
                 if (this.IsFocused)
                     window.SetFocus(this);
+
+                this.InitializedAction?.Invoke(this);
             }
-
-            this.TunnelControls(control =>
-            {
-                if (control != this)
-                    control.FrameworkInitialize(window);
-                return true;
-            });
-
-            this.InitializedAction?.Invoke(this);
         }
         public virtual void FrameworkTick(Window window) { }
         public virtual void FrameworkIntrinsic(Window window, Size content)
@@ -384,9 +375,6 @@ namespace PhotonUI.Controls
             if (!this.IsInitialized)
                 return;
 
-            if (this.Window == null)
-                throw new InvalidOperationException($"Control '{this.Name}' is not associated to a RootWindow.");
-
             base.OnPropertyChanged(e);
 
             bool invalidateMeasure = false;
@@ -429,10 +417,14 @@ namespace PhotonUI.Controls
             if (invalidateRender)
                 this.RequestRender(true);
 
-            this.FrameworkEventBubble(this.Window, new ChildPropertyChangedEventArgs(this, e));
+            this.FrameworkEventBubble(Photon.GetWindow(this), new ChildPropertyChangedEventArgs(this, e));
         }
 
-        public virtual void OnInitialize(Window window) { }
+        public virtual void OnInitialize(Window window)
+        {
+            if (!this.IsInitialized)
+                this.FrameworkInitialize(window);
+        }
         public virtual void OnTick(Window window)
         {
             this.FrameworkTick(window);

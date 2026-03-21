@@ -172,11 +172,13 @@ namespace PhotonUI.Behaviors
             this.IsHorizontalCaretDown = false;
             this.WasHorizontalTrackClicked = false;
 
+            Window window = Photon.GetWindow(this.Control);
+
             if (this.VerticalCaretRect.HasValue && Photon.HitTest(this.VerticalCaretRect.Value, px, py))
             {
                 this.IsVerticalCaretDown = true;
 
-                this.Control.Window?.CapturePointer(this.Control);
+                window.CapturePointer(this.Control);
 
                 return;
             }
@@ -188,7 +190,7 @@ namespace PhotonUI.Behaviors
             }
             if (this.HorizontalCaretRect.HasValue && Photon.HitTest(this.HorizontalCaretRect.Value, px, py))
             {
-                this.Control.Window?.CapturePointer(this.Control);
+                window.CapturePointer(this.Control);
 
                 this.IsHorizontalCaretDown = true;
 
@@ -292,7 +294,8 @@ namespace PhotonUI.Behaviors
                 }
             }
 
-            this.Control?.Window?.ReleasePointer();
+            if (this.Control != null)
+                Photon.GetWindow(this.Control).ReleasePointer();
 
             this.IsVerticalCaretDown = false;
             this.WasVerticalTrackClicked = false;

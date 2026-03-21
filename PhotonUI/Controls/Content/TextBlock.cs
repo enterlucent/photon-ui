@@ -153,12 +153,7 @@ namespace PhotonUI.Controls.Content
                 Photon.InvalidateRenderChain(this);
         }
 
-        public override void FrameworkInitialize(Window window)
-        {
-            base.FrameworkInitialize(window);
 
-            this.RebuildFont();
-        }
         public override void FrameworkArrange(Window window, SDL.FPoint anchor)
         {
             this.DrawRect.X = anchor.X + this.X;
@@ -219,9 +214,6 @@ namespace PhotonUI.Controls.Content
         {
             if (!this.IsInitialized)
                 return;
-
-            if (this.Window == null)
-                throw new InvalidOperationException($"Control '{this.Name}' is not associated to a RootWindow.");
 
             base.OnPropertyChanged(e);
 
@@ -295,6 +287,12 @@ namespace PhotonUI.Controls.Content
                 this.RebuildFont();
         }
 
+        public override void OnInitialize(Window window)
+        {
+            this.RebuildFont();
+
+            base.OnInitialize(window);
+        }
         public override void OnEvent(Window window, FrameworkEventArgs e)
         {
             if (e.Handled == true || e.Preview == true) return;

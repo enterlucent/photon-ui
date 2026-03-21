@@ -114,9 +114,6 @@ namespace PhotonUI.Controls.Content
             if (!this.IsInitialized)
                 return;
 
-            if (this.Window == null)
-                throw new InvalidOperationException("Sprite property change: RootWindow == null.");
-
             base.OnPropertyChanged(e);
 
             bool invalidateMeasure = false;
@@ -148,7 +145,7 @@ namespace PhotonUI.Controls.Content
                     invalidateMeasure = true;
                     invalidateLayout = true;
                     invalidateRender = true;
-                    if (this.TryLoadPlayer(this.Window)) this.Player?.Play();
+                    if (this.TryLoadPlayer(Photon.GetWindow(this))) this.Player?.Play();
                     break;
 
                 case nameof(this.FlipX):

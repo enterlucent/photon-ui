@@ -14,13 +14,6 @@ namespace PhotonUI
 {
     public static class Photon
     {
-        public static void EnsureRootWindow(Control control)
-        {
-            ArgumentNullException.ThrowIfNull(control);
-
-            if (control.Window is null)
-                throw new InvalidOperationException($"Control '{control.Name}' has no RootWindow.");
-        }
         public static Window GetWindow(Control control)
         {
             Control? current = control;
@@ -51,13 +44,10 @@ namespace PhotonUI
                 return true;
             });
 
-            boundary ??= control.Window;
+            boundary ??= Photon.GetWindow(control);
 
-            if (boundary?.Window != null)
-            {
-                boundary.RequestRender(false);
-                boundary.IsBoundryDirty = true;
-            }
+            boundary.RequestRender(false);
+            boundary.IsBoundryDirty = true;
         }
 
         public static SDL.FRect ScaleRect(SDL.FRect rect, Vector2 scale, SDL.FPoint anchor)
@@ -829,7 +819,7 @@ namespace PhotonUI
 
         public static void DrawControlBackground<T>(T control) where T : Control, IControlProperties
         {
-            EnsureRootWindow(control);
+            Window window = Photon.GetWindow(control);
 
             SDL.Color adjusted = new()
             {
@@ -841,11 +831,11 @@ namespace PhotonUI
 
             SDL.FRect drawSurface = control.DrawRect;
 
-            DrawRectangle(control.Window!, drawSurface, adjusted, control.Window?.BackTexture ?? default);
+            DrawRectangle(window, drawSurface, adjusted, window.BackTexture);
         }
         public static void DrawControlBackground<T>(T control, ControlProperties props) where T : Control, IControlProperties
         {
-            EnsureRootWindow(control);
+            Window window = Photon.GetWindow(control);
 
             SDL.Color adjusted = new()
             {
@@ -857,34 +847,34 @@ namespace PhotonUI
 
             SDL.FRect drawSurface = control.DrawRect;
 
-            DrawRectangle(control.Window!, drawSurface, adjusted, control.Window?.BackTexture ?? default);
+            DrawRectangle(window, drawSurface, adjusted, window.BackTexture);
         }
 
         public static void DrawControlBorder<T>(T control) where T : Control, IBorderProperties, IControlProperties
         {
-            EnsureRootWindow(control);
+            Window window = Photon.GetWindow(control);
 
             BorderColors adjusted = control.BorderColors.WithOpacity(control.Opacity);
 
             SDL.FRect drawSurface = control.DrawRect;
 
-            DrawBorder(control.Window!, drawSurface, control.BorderThickness, adjusted, control.Window!.BackTexture);
+            DrawBorder(window, drawSurface, control.BorderThickness, adjusted, window.BackTexture);
         }
         public static void DrawControlBorder<T>(T control, BorderProperties props, ControlProperties controlProps)
             where T : Control, IBorderProperties
         {
-            EnsureRootWindow(control);
+            Window window = Photon.GetWindow(control);
 
             BorderColors adjusted = props.BorderColors.WithOpacity(controlProps.Opacity);
 
             SDL.FRect drawSurface = control.DrawRect;
 
-            DrawBorder(control.Window!, drawSurface, props.BorderThickness, adjusted, control.Window!.BackTexture);
+            DrawBorder(window, drawSurface, props.BorderThickness, adjusted, window.BackTexture);
         }
 
         public static void DrawControlTexture<T>(T control, IntPtr texture, SDL.FRect destination, SDL.Rect? clipRect = null) where T : Control, IControlProperties
         {
-            EnsureRootWindow(control);
+            Window window = Photon.GetWindow(control);
 
             SDL.GetTextureAlphaMod(texture, out byte originalAlpha);
 
@@ -892,13 +882,13 @@ namespace PhotonUI
 
             SDL.SetTextureAlphaMod(texture, newAlpha);
 
-            DrawTexture(control.Window!, texture, destination, control.Window!.BackTexture, null, clipRect);
+            DrawTexture(window, texture, destination, window.BackTexture, null, clipRect);
 
             SDL.SetTextureAlphaMod(texture, originalAlpha);
         }
         public static void DrawControlTexture<T>(T control, IntPtr texture, SDL.FRect destination, SDL.FRect? sourceRect = null, SDL.Rect? clipRect = null) where T : Control, IControlProperties
         {
-            EnsureRootWindow(control);
+            Window window = Photon.GetWindow(control);
 
             SDL.GetTextureAlphaMod(texture, out byte originalAlpha);
 
@@ -906,14 +896,14 @@ namespace PhotonUI
 
             SDL.SetTextureAlphaMod(texture, newAlpha);
 
-            DrawTexture(control.Window!, texture, destination, control.Window!.BackTexture, sourceRect, clipRect);
+            DrawTexture(window, texture, destination, window.BackTexture, sourceRect, clipRect);
 
             SDL.SetTextureAlphaMod(texture, originalAlpha);
         }
 
         public static void DrawControlTextureRotated<T>(T control, IntPtr texture, SDL.FRect destination, double angle, SDL.FPoint center, SDL.FlipMode flip, SDL.Rect? clipRect = null) where T : Control, IControlProperties
         {
-            EnsureRootWindow(control);
+            Window window = Photon.GetWindow(control);
 
             SDL.GetTextureAlphaMod(texture, out byte originalAlpha);
 
@@ -921,13 +911,13 @@ namespace PhotonUI
 
             SDL.SetTextureAlphaMod(texture, newAlpha);
 
-            DrawTextureRotated(control.Window!, texture, null, destination, angle, center, flip, control.Window!.BackTexture, clipRect);
+            DrawTextureRotated(window, texture, null, destination, angle, center, flip, window.BackTexture, clipRect);
 
             SDL.SetTextureAlphaMod(texture, originalAlpha);
         }
         public static void DrawControlTextureRotated<T>(T control, IntPtr texture, SDL.FRect destination, SDL.FRect? sourceRect, double angle, SDL.FPoint center, SDL.FlipMode flip, SDL.Rect? clipRect = null) where T : Control, IControlProperties
         {
-            EnsureRootWindow(control);
+            Window window = Photon.GetWindow(control);
 
             SDL.GetTextureAlphaMod(texture, out byte originalAlpha);
 
@@ -935,7 +925,7 @@ namespace PhotonUI
 
             SDL.SetTextureAlphaMod(texture, newAlpha);
 
-            DrawTextureRotated(control.Window!, texture, sourceRect, destination, angle, center, flip, control.Window!.BackTexture, clipRect);
+            DrawTextureRotated(window, texture, sourceRect, destination, angle, center, flip, window.BackTexture, clipRect);
 
             SDL.SetTextureAlphaMod(texture, originalAlpha);
         }
