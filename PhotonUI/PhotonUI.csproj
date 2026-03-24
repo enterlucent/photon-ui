@@ -8,13 +8,14 @@
 		<Company>Enterlucent</Company>
 		<Authors>Enterlucent</Authors>
 		<Product>PhotonUI</Product>
-		<Description>SDL3 based MVVM library for creating cross platform UI/UX </Description>
+		<Description>SDL3 based MVVM library for creating cross platform UI/UX</Description>
 		<Copyright>© 2026 Enterlucent</Copyright>
 
 		<AssemblyTitle>PhotonUI</AssemblyTitle>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<FileVersion>1.0.0.0</FileVersion>
 		<InformationalVersion>1.0.0</InformationalVersion>
+		<Configurations>Debug;Release;Diagnostics;Diagnose</Configurations>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -36,5 +37,15 @@
 		<PackageReference Include="SDL3-CS.Native.Mixer" Version="2.8.1.1" />
 		<PackageReference Include="SDL3-CS.Native.TTF" Version="3.2.2" />
 	</ItemGroup>
+
+	<!-- Debug build: normal debugging, no diagnostics -->
+	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+		<DefineConstants>DEBUG</DefineConstants>
+	</PropertyGroup>
+
+	<!-- Diagnose build: debugging + diagnostics -->
+	<PropertyGroup Condition="'$(Configuration)' == 'Diagnose'">
+		<DefineConstants>DEBUG;PHOTON_DIAGNOSTICS</DefineConstants>
+	</PropertyGroup>
 
 </Project>

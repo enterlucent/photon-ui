@@ -1,4 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using PhotonUI.Diagnostics;
+using PhotonUI.Diagnostics.Events;
+using PhotonUI.Diagnostics.Events.Framework;
+using PhotonUI.Diagnostics.Events.Platform;
 using PhotonUI.Events;
 using PhotonUI.Events.Framework;
 using PhotonUI.Events.Platform;
@@ -250,9 +254,15 @@ namespace PhotonUI.Controls
         }
 
         public virtual bool TunnelControls(Func<Control, bool> tunneler, TunnelDirection direction = TunnelDirection.TopDown)
-            => tunneler(this);
+        {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [tunneler, direction]));
+
+            return tunneler(this);
+        }
         public virtual bool BubbleControls(Func<Control, bool> bubbler)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [bubbler]));
+
             if (!bubbler(this))
                 return false;
 
@@ -266,23 +276,33 @@ namespace PhotonUI.Controls
 
         public virtual void RequestMeasure()
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
+
             this.TunnelControls(control =>
             {
                 control.IsIntrinsicDirty = true;
                 control.IsMeasureDirty = true;
                 return true;
             });
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         public virtual void RequestArrange()
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
+
             this.TunnelControls(control =>
             {
                 control.IsLayoutDirty = true;
                 return true;
             });
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         public virtual void RequestRender(bool invalidate = true)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [invalidate], DiagnosticPhase.Start));
+
             this.IsRenderDirty = true;
 
             if (invalidate)
@@ -294,23 +314,34 @@ namespace PhotonUI.Controls
                     control.RequestRender(false);
                 return true;
             });
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [invalidate], DiagnosticPhase.End));
         }
 
         public virtual void FrameworkEventBubble(Window window, FrameworkEventArgs e)
         {
-            if (!this.IsInitialized)
-                return;
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, e], DiagnosticPhase.Start));
 
-            this.OnEvent(window, e);
-
-            this.BubbleControls(control =>
+            try
             {
-                if (!control.IsInitialized)
-                    return true;
+                if (!this.IsInitialized)
+                    return;
 
-                control.OnEvent(window, e);
-                return true;
-            });
+                this.OnEvent(window, e);
+
+                this.BubbleControls(control =>
+                {
+                    if (!control.IsInitialized)
+                        return true;
+
+                    control.OnEvent(window, e);
+                    return true;
+                });
+            }
+            finally
+            {
+                PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, e], DiagnosticPhase.End));
+            }
         }
 
         public virtual void FrameworkInitialize(Window window)
@@ -319,31 +350,35 @@ namespace PhotonUI.Controls
 
             if (!this.IsInitialized)
             {
-                this.IsInitialized = true;
-
-                this.OnInitialize(window);
-
                 if (this.IsFocused)
                     window.SetFocus(this);
 
                 this.InitializedAction?.Invoke(this);
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window]));
         }
         public virtual void FrameworkTick(Window window) { }
         public virtual void FrameworkIntrinsic(Window window, Size content)
         {
             // Set the intrinsic size to the minimum size for this control
             this.IntrinsicSize = Photon.GetMinimumSize(this);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, content]));
         }
         public virtual void FrameworkMeasure(Window window) { }
         public virtual void FrameworkArrange(Window window, SDL.FPoint anchor)
         {
             this.DrawRect.X = anchor.X + this.X;
             this.DrawRect.Y = anchor.Y + this.Y;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, anchor]));
         }
         public virtual void FrameworkLateTick(Window window) { }
         public virtual void FrameworkRender(Window window, SDL.Rect? clipRect)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.Start));
+
             // Skip rendering if control is not visible
             if (this.IsVisible)
             {
@@ -361,8 +396,12 @@ namespace PhotonUI.Controls
 
                     // Restore the original clip region
                     Photon.ApplyControlClipRect(window, clipRect);
+
+                    PhotonDiagnostics.Emit(new RenderControlEventArgs(this));
                 }
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.End));
         }
         public virtual void FrameworkPostTick(Window window) { }
 
@@ -374,6 +413,8 @@ namespace PhotonUI.Controls
         {
             if (!this.IsInitialized)
                 return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.Start));
 
             base.OnPropertyChanged(e);
 
@@ -418,20 +459,35 @@ namespace PhotonUI.Controls
                 this.RequestRender(true);
 
             this.FrameworkEventBubble(Photon.GetWindow(this), new ChildPropertyChangedEventArgs(this, e));
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.End));
         }
 
         public virtual void OnInitialize(Window window)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
             if (!this.IsInitialized)
+            {
                 this.FrameworkInitialize(window);
+                this.IsInitialized = true;
+            }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
         }
         public virtual void OnTick(Window window)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
             this.FrameworkTick(window);
             this.TickAction?.Invoke(this);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
         }
         public virtual void OnIntrinsic(Window window, Size content)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, content], DiagnosticPhase.Start));
+
             if (this.IsIntrinsicDirty)
             {
                 this.FrameworkIntrinsic(window, content);
@@ -439,9 +495,13 @@ namespace PhotonUI.Controls
                 this.IntrinsicAction?.Invoke(this);
                 this.IsIntrinsicDirty = false;
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, content], DiagnosticPhase.End));
         }
         public virtual void OnMeasure(Window window)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
             if (this.IsMeasureDirty)
             {
                 this.FrameworkMeasure(window);
@@ -449,9 +509,13 @@ namespace PhotonUI.Controls
                 this.MeasuredAction?.Invoke(this);
                 this.IsMeasureDirty = false;
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
         }
         public virtual void OnArrange(Window window, SDL.FPoint anchor)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, anchor], DiagnosticPhase.Start));
+
             if (this.IsLayoutDirty)
             {
                 this.FrameworkArrange(window, anchor);
@@ -459,14 +523,22 @@ namespace PhotonUI.Controls
                 this.ArrangedAction?.Invoke(this);
                 this.IsLayoutDirty = false;
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, anchor], DiagnosticPhase.End));
         }
         public virtual void OnLateTick(Window window)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
             this.FrameworkLateTick(window);
             this.LateTickAction?.Invoke(this);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
         }
         public virtual void OnRender(Window window, SDL.Rect? clipRect = null)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [clipRect], DiagnosticPhase.Start));
+
             if (this.IsRenderDirty)
             {
                 this.FrameworkRender(window, clipRect);
@@ -474,12 +546,19 @@ namespace PhotonUI.Controls
                 this.RenderedAction?.Invoke(this);
                 this.IsRenderDirty = false;
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [clipRect], DiagnosticPhase.End));
         }
         public virtual void OnPostTick(Window window)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
             this.FrameworkPostTick(window);
             this.PostTickAction?.Invoke(this);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
         }
+
         public virtual void OnEvent(Window window, FrameworkEventArgs e)
         {
             if (e.Handled || e.Preview) return;
@@ -508,6 +587,8 @@ namespace PhotonUI.Controls
                     this.PointerPressAction?.Invoke(pointerPress);
                     break;
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, e]));
         }
 
         public virtual void Dispose()

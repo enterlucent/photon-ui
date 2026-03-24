@@ -1,4 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using PhotonUI.Diagnostics;
+using PhotonUI.Diagnostics.Events;
+using PhotonUI.Diagnostics.Events.Framework;
+using PhotonUI.Diagnostics.Events.Platform;
 using PhotonUI.Events.Framework;
 using PhotonUI.Extensions;
 using PhotonUI.Interfaces.Services;
@@ -49,22 +53,33 @@ namespace PhotonUI.Controls
 
         public override bool TunnelControls(Func<Control, bool> traveler, TunnelDirection direction = TunnelDirection.TopDown)
         {
-            if (direction == TunnelDirection.TopDown)
-            {
-                if (!traveler(this)) return false;
-                if (this.Child != null && !this.Child.TunnelControls(traveler, direction)) return false;
-            }
-            else
-            {
-                if (this.Child != null && !this.Child.TunnelControls(traveler, direction)) return false;
-                if (!traveler(this)) return false;
-            }
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [traveler, direction], DiagnosticPhase.Start));
 
-            return true;
+            try
+            {
+                if (direction == TunnelDirection.TopDown)
+                {
+                    if (!traveler(this)) return false;
+                    if (this.Child != null && !this.Child.TunnelControls(traveler, direction)) return false;
+                }
+                else
+                {
+                    if (this.Child != null && !this.Child.TunnelControls(traveler, direction)) return false;
+                    if (!traveler(this)) return false;
+                }
+
+                return true;
+            }
+            finally
+            {
+                PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [traveler, direction], DiagnosticPhase.End));
+            }
         }
 
         public override void FrameworkIntrinsic(Window window, Size content)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, content], DiagnosticPhase.Start));
+
             Size? childSize = null;
 
             if (this.Child != null)
@@ -81,9 +96,13 @@ namespace PhotonUI.Controls
             // Calculate the intrinsic size, but only if not a Window (for base controls)
             if (this.GetType() != typeof(Window))
                 this.IntrinsicSize = Photon.GetMinimumSize(this, childSize);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, content], DiagnosticPhase.End));
         }
         public override void FrameworkMeasure(Window window)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
             if (this.Child != null)
             {
                 Size stretchedSize = Photon.GetStretchedSize(this, this.Child);
@@ -93,9 +112,13 @@ namespace PhotonUI.Controls
 
                 this.Child.OnMeasure(window);
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
         }
         public override void FrameworkArrange(Window window, SDL.FPoint anchor)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, anchor], DiagnosticPhase.Start));
+
             base.FrameworkArrange(window, anchor);
 
             if (this.Child != null)
@@ -105,9 +128,13 @@ namespace PhotonUI.Controls
                 // Arrange child based on computed anchor point
                 this.Child.OnArrange(window, childAnchor);
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, anchor], DiagnosticPhase.End));
         }
         public override void FrameworkRender(Window window, SDL.Rect? clipRect)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.Start));
+
             // Skip rendering if control is not visible
             if (this.IsVisible)
             {
@@ -134,20 +161,31 @@ namespace PhotonUI.Controls
 
                     // Restore the original clip region
                     Photon.ApplyControlClipRect(window, clipRect);
+
+                    PhotonDiagnostics.Emit(new RenderControlEventArgs(this));
                 }
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.End));
         }
 
         #endregion
 
-        #region Control: Hooks
+        #region Presenter: Hooks
 
         public override void OnInitialize(Window window)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
             if (!this.IsInitialized)
+            {
                 this.FrameworkInitialize(window);
+                this.IsInitialized = true;
+            }
 
             this.Child?.OnInitialize(window);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
         }
 
         #endregion

@@ -1,5 +1,9 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using PhotonUI.Behaviors;
+using PhotonUI.Diagnostics;
+using PhotonUI.Diagnostics.Events;
+using PhotonUI.Diagnostics.Events.Framework;
+using PhotonUI.Diagnostics.Events.Platform;
 using PhotonUI.Events;
 using PhotonUI.Events.Platform;
 using PhotonUI.Extensions;
@@ -181,12 +185,15 @@ namespace PhotonUI.Controls.Content
         }
         public override void FrameworkRender(Window window, SDL.Rect? clipRect = null)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.Start));
+
             if (this.IsVisible)
             {
                 Photon.GetControlClipRect(this.DrawRect, this.ClipToBounds, clipRect, out SDL.Rect? effectiveClipRect);
 
                 if (effectiveClipRect.HasValue)
                 {
+
                     if (this.IsTextDirty)
                     {
                         this.RebuildTextureCache(window, this.FromControl<TextProperties>());
@@ -202,8 +209,12 @@ namespace PhotonUI.Controls.Content
                     this.ScrollbarBehavior.OnRender(window, this.DrawRect.ToRect());
 
                     Photon.ApplyControlClipRect(window, clipRect);
+
+                    PhotonDiagnostics.Emit(new RenderControlEventArgs(this));
                 }
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.End));
         }
 
         #endregion
@@ -289,13 +300,19 @@ namespace PhotonUI.Controls.Content
 
         public override void OnInitialize(Window window)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
             this.RebuildFont();
 
             base.OnInitialize(window);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
         }
         public override void OnEvent(Window window, FrameworkEventArgs e)
         {
             if (e.Handled == true || e.Preview == true) return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, e], DiagnosticPhase.Start));
 
             if (e is PlatformEventArgs platformEvent)
                 this.ScrollbarBehavior?.OnEvent(window, platformEvent.NativeEvent);
@@ -312,6 +329,8 @@ namespace PhotonUI.Controls.Content
                     pointerExited.Handled = true;
                     break;
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, e], DiagnosticPhase.End));
         }
 
         public override void Dispose()

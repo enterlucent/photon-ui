@@ -1,4 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using PhotonUI.Diagnostics;
+using PhotonUI.Diagnostics.Events;
+using PhotonUI.Diagnostics.Events.Framework;
 using PhotonUI.Extensions;
 using PhotonUI.Interfaces;
 using PhotonUI.Interfaces.Services;
@@ -147,6 +150,8 @@ namespace PhotonUI.Controls.Layout
             if (!this.IsInitialized)
                 return;
 
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.Start));
+
             base.OnPropertyChanged(e);
 
             bool invalidateMeasure = false;
@@ -170,6 +175,8 @@ namespace PhotonUI.Controls.Layout
 
             if (invalidateRender)
                 this.RequestRender();
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.End));
         }
 
         #endregion

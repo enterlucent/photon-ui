@@ -1,5 +1,9 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using PhotonUI.Components;
+using PhotonUI.Diagnostics;
+using PhotonUI.Diagnostics.Events;
+using PhotonUI.Diagnostics.Events.Framework;
+using PhotonUI.Diagnostics.Events.Platform;
 using PhotonUI.Interfaces;
 using PhotonUI.Interfaces.Services;
 using PhotonUI.Models;
@@ -114,6 +118,8 @@ namespace PhotonUI.Controls.Content
             if (!this.IsInitialized)
                 return;
 
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.Start));
+
             base.OnPropertyChanged(e);
 
             bool invalidateMeasure = false;
@@ -172,18 +178,26 @@ namespace PhotonUI.Controls.Content
 
             if (invalidateRender)
                 this.RequestRenderWithFlags();
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.End));
         }
 
         public override void OnInitialize(Window window)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
             base.OnInitialize(window);
 
             if (this.TryLoadPlayer(window))
                 if (this.Player != null)
                     this.IsPlayerDirty = false;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
         }
         public override void OnTick(Window window)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
             base.OnTick(window);
 
             if (this.IsImageDirty)
@@ -216,9 +230,13 @@ namespace PhotonUI.Controls.Content
                 this.RebuildTexture(window, frame, currentIndex);
                 this.RequestRender(invalidate: true);
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
         }
         public override void OnRender(Window window, SDL.Rect? clipRect = null)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.Start));
+
             if (this.IsRenderDirty)
             {
                 if (this.IsVisible)
@@ -246,12 +264,16 @@ namespace PhotonUI.Controls.Content
                         }
 
                         Photon.ApplyControlClipRect(window, clipRect);
+
+                        PhotonDiagnostics.Emit(new RenderControlEventArgs(this, DiagnosticPhase.Start));
                     }
                 }
 
                 this.IsRenderDirty = false;
                 this.RenderedAction?.Invoke(this);
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.End));
         }
 
         public override void Dispose()

@@ -1,5 +1,9 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using PhotonUI.Controls.Decorators;
+using PhotonUI.Diagnostics;
+using PhotonUI.Diagnostics.Events;
+using PhotonUI.Diagnostics.Events.Framework;
+using PhotonUI.Diagnostics.Events.Platform;
 using PhotonUI.Events;
 using PhotonUI.Events.Platform;
 using PhotonUI.Extensions;
@@ -18,6 +22,8 @@ namespace PhotonUI.Controls.Interaction
         protected bool IsHovering = false;
         protected bool IsPressed = false;
 
+        #region ClickSurface: Style Properties
+
         [ObservableProperty] private BorderColors borderColors = BorderProperties.Default.BorderColors;
         [ObservableProperty] private Thickness borderThickness = BorderProperties.Default.BorderThickness;
 
@@ -28,9 +34,13 @@ namespace PhotonUI.Controls.Interaction
         [ObservableProperty] private float pressedOpacity = PressedProperties.Default.PressedOpacity;
         [ObservableProperty] private float pressedScale = PressedProperties.Default.PressedScale;
 
+        #endregion
+
+        #region ClickSurface: Actions
+
         public Action<PointerClickEventArgs>? OnClickAction { get; set; }
 
-        public ICommand? OnClick { get; set; }
+        #endregion
 
         #region ClickSurface: Framework
 
@@ -57,6 +67,8 @@ namespace PhotonUI.Controls.Interaction
 
         public override void FrameworkRender(Window window, SDL.Rect? clipRect = null)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.Start));
+
             if (this.IsVisible)
             {
                 Photon.GetControlClipRect(this.DrawRect, this.ClipToBounds, clipRect, out SDL.Rect? effectiveClipRect);
@@ -73,63 +85,79 @@ namespace PhotonUI.Controls.Interaction
                     this.Child?.OnRender(window, modifiedClipRect);
 
                     Photon.ApplyControlClipRect(window, clipRect);
+
+                    PhotonDiagnostics.Emit(new RenderControlEventArgs(this));
                 }
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.End));
         }
         #endregion
 
         #region ClickSurface: Hooks
 
+        public ICommand? OnClick { get; set; }
+
         public override void OnEvent(Window window, FrameworkEventArgs e)
         {
             if (e.Handled || e.Preview) return;
 
-            base.OnEvent(window, e);
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, e], DiagnosticPhase.Start));
 
-            switch (e)
+            try
             {
-                case PointerEnterEventArgs:
-                    this.IsHovering = true;
-                    this.RequestRender();
-                    e.Handled = true;
-                    break;
+                base.OnEvent(window, e);
 
-                case PointerExitEventArgs:
-                    this.IsHovering = false;
-                    this.RequestRender();
-                    e.Handled = true;
-                    break;
-            }
-
-            if (e is not PointerClickEventArgs pointerPress) return;
-
-            switch (pointerPress.NativeEvent.Type)
-            {
-                case (uint)SDL.EventType.MouseButtonDown:
-                    if (pointerPress.Clicked == this || this.IsDescendant(pointerPress.Clicked))
-                    {
-                        this.IsPressed = true;
+                switch (e)
+                {
+                    case PointerEnterEventArgs:
+                        this.IsHovering = true;
                         this.RequestRender();
-                        window.CapturePointer(this);
                         e.Handled = true;
-                    }
-                    break;
+                        break;
 
-                case (uint)SDL.EventType.MouseButtonUp:
-                    if (pointerPress.Clicked == this || this.IsDescendant(pointerPress.Clicked))
-                    {
-                        if (this.IsHovering && this.IsPressed)
+                    case PointerExitEventArgs:
+                        this.IsHovering = false;
+                        this.RequestRender();
+                        e.Handled = true;
+                        break;
+                }
+
+                if (e is not PointerClickEventArgs pointerPress) return;
+
+                switch (pointerPress.NativeEvent.Type)
+                {
+                    case (uint)SDL.EventType.MouseButtonDown:
+                        if (pointerPress.Clicked == this || this.IsDescendant(pointerPress.Clicked))
                         {
-                            this.OnClick?.Execute(pointerPress);
-                            this.OnClickAction?.Invoke(pointerPress);
+                            this.IsPressed = true;
+                            this.RequestRender();
+                            window.CapturePointer(this);
+                            e.Handled = true;
                         }
+                        break;
 
-                        this.IsPressed = false;
-                        this.RequestRender();
-                        window.ReleasePointer();
-                        e.Handled = true;
-                    }
-                    break;
+                    case (uint)SDL.EventType.MouseButtonUp:
+                        if (pointerPress.Clicked == this || this.IsDescendant(pointerPress.Clicked))
+                        {
+                            if (this.IsHovering && this.IsPressed)
+                            {
+                                this.OnClick?.Execute(pointerPress);
+                                this.OnClickAction?.Invoke(pointerPress);
+                            }
+
+                            this.IsPressed = false;
+                            this.RequestRender();
+                            window.ReleasePointer();
+                            e.Handled = true;
+                        }
+                        break;
+                }
+
+            }
+            finally
+            {
+                PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, e], DiagnosticPhase.End));
             }
         }
 

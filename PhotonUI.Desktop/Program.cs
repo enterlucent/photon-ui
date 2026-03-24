@@ -3,8 +3,10 @@ using PhotonUI.Components;
 using PhotonUI.Controls;
 using PhotonUI.Controls.Decorators;
 using PhotonUI.Desktop;
+using PhotonUI.Desktop.Diagnostics;
 using PhotonUI.Desktop.ViewModels;
 using PhotonUI.Desktop.Views;
+using PhotonUI.Diagnostics;
 using PhotonUI.Interfaces.Services;
 using PhotonUI.Models;
 using PhotonUI.Services;
@@ -26,6 +28,8 @@ partial class Program
         Vacuum.Excite(
             services =>
             {
+                services.AddSingleton<IPhotonDiagnostics, DiagnosticXMLSink>();
+
                 services.AddSingleton<IFontService, FontService>();
                 services.AddSingleton<ITextureService, TextureService>();
                 services.AddSingleton<IBindingService, BindingService>();
@@ -39,14 +43,14 @@ partial class Program
 
                 services.AddTransient<MainView>();
                 services.AddTransient<MainViewModel>();
-
                 services.AddTransient<Window>();
             },
             provider =>
             {
+                PhotonDiagnostics.Sink = provider.GetService<IPhotonDiagnostics>();
+
                 view = provider.GetRequiredService<MainView>();
                 viewModel = provider.GetRequiredService<MainViewModel>();
-
                 window = provider.GetRequiredService<Window>();
 
                 if (!SDL.Init(SDL.InitFlags.Video))
@@ -60,7 +64,15 @@ partial class Program
         if (window == null)
             throw new NullReferenceException("Window instance == null after DI resolution.");
 
-        window.Name = "Window";
+        DiagnosticXMLSink? sink = PhotonDiagnostics.Sink as DiagnosticXMLSink;
+
+        sink?
+            .SetHeader("<PhotonDiagnostics>")
+            .SetFooter("</PhotonDiagnostics>")
+            .ResetOutput()
+            .Start();
+
+        window.Name = "Root";
         window.Child = (Border)view;
         window.Child.DataContext = viewModel;
         window.Initialize("PhotonUI :: Demo", new Size(800, 600), SDL.WindowFlags.Resizable);

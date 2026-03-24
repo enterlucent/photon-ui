@@ -1,5 +1,9 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using PhotonUI.Behaviors;
+using PhotonUI.Diagnostics;
+using PhotonUI.Diagnostics.Events;
+using PhotonUI.Diagnostics.Events.Framework;
+using PhotonUI.Diagnostics.Events.Platform;
 using PhotonUI.Events;
 using PhotonUI.Events.Platform;
 using PhotonUI.Extensions;
@@ -91,14 +95,20 @@ namespace PhotonUI.Controls.Viewport
 
         public override void RequestRender(bool invalidate = true)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [invalidate], DiagnosticPhase.Start));
+
             this.IsRenderDirty = true;
             this.ScrollbarBehavior.RequestRender();
 
             if (invalidate)
                 Photon.InvalidateRenderChain(this);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [invalidate], DiagnosticPhase.End));
         }
         public virtual void RequestRenderWithFlags(bool scrollbarDirty = false, bool invalidate = true)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [invalidate], DiagnosticPhase.Start));
+
             this.IsRenderDirty = true;
 
             if (scrollbarDirty == true)
@@ -106,10 +116,14 @@ namespace PhotonUI.Controls.Viewport
 
             if (invalidate)
                 Photon.InvalidateRenderChain(this);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [invalidate], DiagnosticPhase.End));
         }
 
         public override void FrameworkIntrinsic(Window window, Size content)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, content], DiagnosticPhase.Start));
+
             if (this.Child != null)
             {
                 Size childContent = content.Deflate(this.PaddingExtent).Deflate(this.Child.MarginExtent);
@@ -120,9 +134,13 @@ namespace PhotonUI.Controls.Viewport
 
             // Calculate the intrinsic size
             this.IntrinsicSize = Photon.GetMinimumSize(this);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, content], DiagnosticPhase.End));
         }
         public override void FrameworkArrange(Window window, SDL.FPoint anchor)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, anchor], DiagnosticPhase.Start));
+
             this.DrawRect.X = anchor.X + this.X;
             this.DrawRect.Y = anchor.Y + this.Y;
 
@@ -138,9 +156,13 @@ namespace PhotonUI.Controls.Viewport
 
                 this.Child.OnArrange(window, new SDL.FPoint() { X = this.Child.DrawRect.X, Y = this.Child.DrawRect.Y });
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, anchor], DiagnosticPhase.End));
         }
         public override void FrameworkRender(Window window, SDL.Rect? clipRect = null)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.Start));
+
             if (this.IsVisible)
             {
                 // Compute effective clip rect: intersection of parent clip, control bounds, and ClipToBounds
@@ -165,8 +187,12 @@ namespace PhotonUI.Controls.Viewport
 
                     // Restore parent clip state (unwind clipping stack)
                     Photon.ApplyControlClipRect(window, clipRect);
+
+                    PhotonDiagnostics.Emit(new RenderControlEventArgs(this));
                 }
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.End));
         }
 
         #endregion
@@ -177,6 +203,8 @@ namespace PhotonUI.Controls.Viewport
         {
             if (!this.IsInitialized)
                 return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.Start));
 
             base.OnPropertyChanged(e);
 
@@ -202,11 +230,15 @@ namespace PhotonUI.Controls.Viewport
 
             if (invalidateRender)
                 this.RequestRender();
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.End));
         }
 
         public override void OnEvent(Window window, FrameworkEventArgs e)
         {
             if (e.Handled == true || e.Preview == true) return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, e], DiagnosticPhase.Start));
 
             if (e is PlatformEventArgs platformEvent)
                 this.ScrollbarBehavior?.OnEvent(window, platformEvent.NativeEvent);
@@ -223,6 +255,8 @@ namespace PhotonUI.Controls.Viewport
                     pointerExited.Handled = true;
                     break;
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, e], DiagnosticPhase.End));
         }
 
         #endregion

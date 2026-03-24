@@ -13,7 +13,7 @@ namespace PhotonUI.Desktop.Views
     {
         protected readonly ITextureService TexureService = textureService;
 
-        public override void OnInitialize(Window window)
+        public override void FrameworkInitialize(Window window)
         {
             this.TexureService.LoadEmbeddedSurface("PhotonUI.Desktop.Assets.Images.sdl_logo.png", "sdl_logo");
 
@@ -34,6 +34,8 @@ namespace PhotonUI.Desktop.Views
             textBlock.MinWidth = 230;
 
             this.Child = textBlock;
+
+            base.FrameworkInitialize(window);
         }
     }
 }

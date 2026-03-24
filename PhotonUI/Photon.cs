@@ -1,14 +1,14 @@
 ﻿using PhotonUI.Controls;
 using PhotonUI.Controls.Content;
+using PhotonUI.Diagnostics;
+using PhotonUI.Diagnostics.Events;
+using PhotonUI.Diagnostics.Events.Framework;
 using PhotonUI.Extensions;
 using PhotonUI.Models;
 using PhotonUI.Models.Properties;
 using PhotonUI.Services;
 using SDL3;
-using System.Diagnostics;
 using System.Numerics;
-using System.Reflection;
-using System.Text;
 
 namespace PhotonUI
 {
@@ -16,38 +16,56 @@ namespace PhotonUI
     {
         public static Window GetWindow(Control control)
         {
-            Control? current = control;
+            PhotonDiagnostics.Emit(new PhotonMethodEventArgs([control], DiagnosticPhase.Start));
 
-            while (current.Parent != null)
-                current = current.Parent;
+            try
+            {
+                Control? current = control;
 
-            if (current is Window window)
-                return window;
+                while (current.Parent != null)
+                    current = current.Parent;
 
-            throw new InvalidOperationException("Window not found");
+                if (current is Window window)
+                    return window;
+
+                throw new InvalidOperationException("Window not found");
+            }
+            finally
+            {
+                PhotonDiagnostics.Emit(new PhotonMethodEventArgs([control], DiagnosticPhase.End));
+            }
         }
         public static void InvalidateRenderChain(Control control)
         {
-            if (!control.IsInitialized) return;
+            PhotonDiagnostics.Emit(new PhotonMethodEventArgs([control], DiagnosticPhase.Start));
 
-            Control? boundary = null;
-
-            control.Parent?.BubbleControls(ancestor =>
+            try
             {
-                ancestor.IsRenderDirty = true;
+                if (!control.IsInitialized) return;
 
-                if (ancestor.IsVisible && ancestor.IsOpaque)
+                Control? boundary = null;
+
+                control.Parent?.BubbleControls(ancestor =>
                 {
-                    boundary = ancestor;
-                    return false;
-                }
-                return true;
-            });
+                    ancestor.IsRenderDirty = true;
 
-            boundary ??= Photon.GetWindow(control);
+                    if (ancestor.IsVisible && ancestor.IsOpaque)
+                    {
+                        boundary = ancestor;
+                        return false;
+                    }
+                    return true;
+                });
 
-            boundary.RequestRender(false);
-            boundary.IsBoundryDirty = true;
+                boundary ??= Photon.GetWindow(control);
+
+                boundary.RequestRender(false);
+                boundary.IsBoundryDirty = true;
+            }
+            finally
+            {
+                PhotonDiagnostics.Emit(new PhotonMethodEventArgs([control], DiagnosticPhase.End));
+            }
         }
 
         public static SDL.FRect ScaleRect(SDL.FRect rect, Vector2 scale, SDL.FPoint anchor)
@@ -142,111 +160,6 @@ namespace PhotonUI
 
             return new Size(targetW, targetH);
         }
-
-        #region Photon: Diagnostics
-
-        public static string BuildCompactStackLine(int trimStartCalls = 0)
-        {
-            StackTrace stackTrace = new(skipFrames: 2, fNeedFileInfo: false);
-            StackFrame[]? frames = stackTrace.GetFrames();
-
-            if (frames == null)
-                return "stack: []";
-
-            List<string> parts = [];
-
-            foreach (StackFrame? frame in frames.Reverse())
-            {
-                MethodBase? method = frame.GetMethod();
-                if (method == null)
-                    continue;
-
-                string typeName = method.DeclaringType?.Name ?? "UnknownType";
-                string methodName = method.Name;
-
-                if (methodName.Contains('<'))
-                {
-                    int startBracket = methodName.IndexOf('<') + 1;
-                    int endBracket = methodName.IndexOf('>');
-                    if (endBracket > 0)
-                        methodName = methodName[startBracket..endBracket];
-                }
-
-                if (typeName.Contains('<'))
-                {
-                    int startBracket = typeName.IndexOf('<') + 1;
-                    int endBracket = typeName.IndexOf('>');
-                    if (endBracket > 0)
-                        typeName = typeName[startBracket..endBracket];
-                    if (string.IsNullOrEmpty(typeName))
-                        typeName = "Anon";
-                }
-
-                parts.Add($"{typeName}.{methodName}");
-            }
-
-            parts = [.. parts.Select(p => p.Contains(".TunnelControls") ? "Tunneling" : p)];
-
-            for (int i = 0; i < parts.Count - 1;)
-            {
-                if (parts[i] == "Tunneling")
-                {
-                    int collapseEnd = i;
-
-                    while (collapseEnd < parts.Count && parts[collapseEnd] == "Tunneling")
-                        collapseEnd++;
-
-                    if (collapseEnd > i + 1)
-                        parts.RemoveRange(i + 1, collapseEnd - i - 1);
-                }
-
-                i++;
-            }
-
-            if (trimStartCalls > 0 && trimStartCalls < parts.Count)
-                parts = [.. parts.Skip(trimStartCalls)];
-
-            return $"stack: {string.Join("→", parts)}";
-        }
-
-        public static string GetLayoutData(Control? control, Func<string>? additional = null)
-        {
-            if (control == null) return "Error: No control provided!";
-
-            StringBuilder data = new();
-
-            string stack = BuildCompactStackLine(3);
-            string phase = string.Empty;
-
-            if (stack.Contains("ApplyIntrinsicRequests"))
-                phase = "FrameworkIntrinsic";
-            else if (stack.Contains("ApplyMeasureRequests"))
-                phase = "FrameworkMeasure";
-            else if (stack.Contains("ApplyArrangeRequests"))
-                phase = "FrameworkArrange";
-            else if (stack.Contains("ApplyRenderRequests"))
-                phase = "FrameworkRender";
-
-            data.AppendLine($"layout: {control.Name} :: {control.GetType().Name}");
-            data.Append("  ");
-            data.Append($"phase: {phase}\n");
-
-            data.Append("  ");
-            data.Append($"intrinsic=({control.IntrinsicSize.Width:F1},{control.IntrinsicSize.Height:F1}), ");
-            data.Append($"draw=({control.DrawRect.X},{control.DrawRect.Y},{control.DrawRect.W},{control.DrawRect.H})\n");
-
-            data.Append("  ");
-            data.Append($"margin=({control.Margin.Left},{control.Margin.Top},{control.Margin.Right},{control.Margin.Bottom}), ");
-            data.Append($"padding=({control.Padding.Left},{control.Padding.Top},{control.Padding.Right},{control.Padding.Bottom}), ");
-            data.Append($"minmax=({control.MinWidth},{control.MinHeight},{control.MaxWidth},{control.MaxHeight})\n");
-
-            if (additional is not null)
-                data.AppendLine(additional());
-
-            return data.ToString();
-        }
-
-        #endregion
 
         #region Photon: Hit Testing
 
@@ -350,22 +263,31 @@ namespace PhotonUI
         }
         public static Control? ResolveHitControl(Window window, float px, float py)
         {
-            List<Control> hits = GetHitControls(window, px, py);
+            PhotonDiagnostics.Emit(new PhotonMethodEventArgs([window, px, py], DiagnosticPhase.Start));
 
-            if (hits == null || hits.Count == 0)
+            try
+            {
+                List<Control> hits = GetHitControls(window, px, py);
+
+                if (hits == null || hits.Count == 0)
+                    return null;
+
+                IOrderedEnumerable<Control> ordered = hits
+                    .Where(c => c.IsVisible && c.IsHitTestVisible)
+                    .OrderByDescending(GetAncestorPath)
+                    .ThenByDescending(c => c.ZIndex)
+                    .ThenByDescending(GetControlDepth);
+
+                foreach (Control control in ordered)
+                    if (AncestorHitTest(control, px, py))
+                        return control;
+
                 return null;
-
-            IOrderedEnumerable<Control> ordered = hits
-                .Where(c => c.IsVisible && c.IsHitTestVisible)
-                .OrderByDescending(GetAncestorPath)
-                .ThenByDescending(c => c.ZIndex)
-                .ThenByDescending(GetControlDepth);
-
-            foreach (Control control in ordered)
-                if (AncestorHitTest(control, px, py))
-                    return control;
-
-            return null;
+            }
+            finally
+            {
+                PhotonDiagnostics.Emit(new PhotonMethodEventArgs([window, px, py], DiagnosticPhase.End));
+            }
         }
 
         #endregion

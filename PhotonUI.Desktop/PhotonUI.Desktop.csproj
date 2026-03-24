@@ -16,6 +16,7 @@
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<FileVersion>1.0.0.0</FileVersion>
 		<InformationalVersion>1.0.0</InformationalVersion>
+		<Configurations>Debug;Release;Diagnostics;Diagnose</Configurations>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -29,11 +30,24 @@
 
 	<ItemGroup>
 		<!--Dependency Injection-->
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.5" />
+		<PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
+		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\PhotonUI\PhotonUI.csproj" />
+		<ProjectReference Include="..\PhotonUI\PhotonUI.csproj" />
 	</ItemGroup>
+
+	<!-- Debug build: normal debugging, no diagnostics -->
+	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+		<DefineConstants>DEBUG</DefineConstants>
+	</PropertyGroup>
+
+	<!-- Diagnose build: debugging + diagnostics -->
+	<PropertyGroup Condition="'$(Configuration)' == 'Diagnose'">
+		<DefineConstants>DEBUG;PHOTON_DIAGNOSTICS</DefineConstants>
+	</PropertyGroup>
 
 </Project>

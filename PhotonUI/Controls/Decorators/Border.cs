@@ -1,4 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using PhotonUI.Diagnostics;
+using PhotonUI.Diagnostics.Events;
+using PhotonUI.Diagnostics.Events.Framework;
+using PhotonUI.Diagnostics.Events.Platform;
 using PhotonUI.Interfaces;
 using PhotonUI.Interfaces.Services;
 using PhotonUI.Models;
@@ -11,11 +15,15 @@ namespace PhotonUI.Controls.Decorators
     public partial class Border(IServiceProvider serviceProvider, IBindingService bindingService)
         : Presenter(serviceProvider, bindingService), IBorderProperties
     {
+        public override Thickness PaddingExtent
+            => this.Padding + this.BorderThickness;
+
+        #region Border: Style Properties
+
         [ObservableProperty] private BorderColors borderColors = BorderProperties.Default.BorderColors;
         [ObservableProperty] private Thickness borderThickness = BorderProperties.Default.BorderThickness;
 
-        public override Thickness PaddingExtent
-            => this.Padding + this.BorderThickness;
+        #endregion
 
         #region Border: Framework
 
@@ -38,6 +46,8 @@ namespace PhotonUI.Controls.Decorators
 
         public override void FrameworkRender(Window window, SDL.Rect? clipRect)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.Start));
+
             // Skip rendering if control is not visible
             if (!this.IsVisible) return;
 
@@ -58,7 +68,11 @@ namespace PhotonUI.Controls.Decorators
 
                 // Restore the original clip region
                 Photon.ApplyControlClipRect(window, clipRect);
+
+                PhotonDiagnostics.Emit(new RenderControlEventArgs(this));
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.End));
         }
 
         #endregion
@@ -69,6 +83,8 @@ namespace PhotonUI.Controls.Decorators
         {
             if (!this.IsInitialized)
                 return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.Start));
 
             base.OnPropertyChanged(e);
 
@@ -97,6 +113,8 @@ namespace PhotonUI.Controls.Decorators
 
             if (invalidateRender)
                 this.RequestRender();
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.End));
         }
 
         #endregion

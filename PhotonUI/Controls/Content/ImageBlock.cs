@@ -1,4 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using PhotonUI.Diagnostics;
+using PhotonUI.Diagnostics.Events;
+using PhotonUI.Diagnostics.Events.Framework;
+using PhotonUI.Diagnostics.Events.Platform;
 using PhotonUI.Interfaces;
 using PhotonUI.Interfaces.Services;
 using PhotonUI.Models;
@@ -19,6 +23,8 @@ namespace PhotonUI.Controls.Content
         protected Size SourceTextureSize = Size.Empty;
         protected Size SourceControlSize = Size.Empty;
 
+        #region ImageBlock: Style Properties
+
         [ObservableProperty] private string imageSourceName = ImageProperties.Default.ImageSourceName;
         [ObservableProperty] private SDL.FRect? imageSourceRect = ImageProperties.Default.ImageSourceRect;
         [ObservableProperty] private SDL.Color imageTintColor = ImageProperties.Default.ImageTintColor;
@@ -27,7 +33,9 @@ namespace PhotonUI.Controls.Content
         [ObservableProperty] private StretchMode stretchMode = StretchProperties.Default.StretchMode;
         [ObservableProperty] private StretchDirection stretchDirection = StretchProperties.Default.StretchDirection;
 
-        #region Image: Framework
+        #endregion
+
+        #region ImageBlock: Framework
 
         public override void ApplyStyles(params IStyleProperties[] properties)
         {
@@ -65,6 +73,8 @@ namespace PhotonUI.Controls.Content
 
         public override void FrameworkRender(Window window, SDL.Rect? clipRect)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.Start));
+
             if (this.IsVisible)
             {
                 Photon.GetControlClipRect(this.DrawRect, this.ClipToBounds, clipRect, out SDL.Rect? effectiveClipRect);
@@ -100,18 +110,24 @@ namespace PhotonUI.Controls.Content
                     Photon.ApplyControlClipRect(window, clipRect);
 
                     this.RenderedAction?.Invoke(this);
+
+                    PhotonDiagnostics.Emit(new RenderControlEventArgs(this));
                 }
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, clipRect], DiagnosticPhase.End));
         }
 
         #endregion
 
-        #region Image: Hooks
+        #region ImageBlock: Hooks
 
         protected override void OnPropertyChanged(PropertyChangedEventArgs e)
         {
             if (!this.IsInitialized)
                 return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.Start));
 
             base.OnPropertyChanged(e);
 
@@ -139,14 +155,20 @@ namespace PhotonUI.Controls.Content
 
             if (invalidateRender)
                 this.RequestRenderWithFlags(imageDirty: invalidateImage);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.End));
         }
 
         public override void OnInitialize(Window window)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
             base.OnInitialize(window);
 
             if (this.LoadSourceTexture(window))
                 this.RebuildTexture(window);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
         }
 
         public override void Dispose()
@@ -165,7 +187,7 @@ namespace PhotonUI.Controls.Content
 
         #endregion
 
-        #region Image: Helpers
+        #region ImageBlock: Helpers
 
         protected virtual void RebuildTexture(Window window)
         {

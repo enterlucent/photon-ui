@@ -1,4 +1,8 @@
 ﻿using PhotonUI.Animations;
+using PhotonUI.Diagnostics;
+using PhotonUI.Diagnostics.Events;
+using PhotonUI.Diagnostics.Events.Framework;
+using PhotonUI.Diagnostics.Events.Platform;
 using PhotonUI.Events;
 using PhotonUI.Events.Framework;
 using PhotonUI.Events.Platform;
@@ -78,6 +82,8 @@ namespace PhotonUI.Controls
         }
         public virtual void Tick()
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
+
             this.ApplyTick();
             this.ApplyAnimationRequests();
             this.ApplyIntrinsicRequests();
@@ -96,32 +102,45 @@ namespace PhotonUI.Controls
                 SDL.RenderClear(this.Renderer);
                 SDL.RenderTexture(this.Renderer, this.BackTexture, IntPtr.Zero, IntPtr.Zero);
                 SDL.RenderPresent(this.Renderer);
+
+                PhotonDiagnostics.Emit(new RenderPresentEventArgs(this));
             }
 
             this.ApplyPostTick();
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         public virtual void Event(SDL.Event e)
         {
-            SDL.EventType eventType = (SDL.EventType)e.Type;
+            PhotonDiagnostics.Emit(new PlatformEventEventArgs(new PlatformEventArgs(e), DiagnosticPhase.Start));
 
-            switch (eventType)
+            try
             {
-                case SDL.EventType.MouseMotion:
-                    this.PointerMotionHandler(this, e);
-                    this.GetFocusedControl(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
-                    return;
+                SDL.EventType eventType = (SDL.EventType)e.Type;
 
-                case SDL.EventType.MouseButtonDown:
-                case SDL.EventType.MouseButtonUp:
-                    this.PointerButtonHandler(this, e);
-                    this.GetFocusedControl(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
-                    return;
+                switch (eventType)
+                {
+                    case SDL.EventType.MouseMotion:
+                        this.PointerMotionHandler(this, e);
+                        this.GetFocusedControl(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
+                        return;
 
-                case SDL.EventType.TextInput:
-                    break;
+                    case SDL.EventType.MouseButtonDown:
+                    case SDL.EventType.MouseButtonUp:
+                        this.PointerButtonHandler(this, e);
+                        this.GetFocusedControl(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
+                        return;
+
+                    case SDL.EventType.TextInput:
+                        break;
+                }
+
+                this.KeyboardInputTarget.OnEvent(this, new PlatformEventArgs(e));
             }
-
-            this.KeyboardInputTarget.OnEvent(this, new PlatformEventArgs(e));
+            finally
+            {
+                PhotonDiagnostics.Emit(new PlatformEventEventArgs(new PlatformEventArgs(e), DiagnosticPhase.End));
+            }
         }
 
         public void GetScreenshot(string path)
@@ -173,9 +192,18 @@ namespace PhotonUI.Controls
         }
         public Control GetFocusedControl(SDL.MouseMotionEvent motion)
         {
-            Control? c = Photon.ResolveHitControl(this, motion.X, motion.Y);
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [motion], DiagnosticPhase.Start));
 
-            return this.PointerCapturedControl ?? c ?? this;
+            try
+            {
+                Control? c = Photon.ResolveHitControl(this, motion.X, motion.Y);
+
+                return this.PointerCapturedControl ?? c ?? this;
+            }
+            finally
+            {
+                PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [motion], DiagnosticPhase.End));
+            }
         }
 
         #endregion
@@ -186,12 +214,18 @@ namespace PhotonUI.Controls
         {
             if (this.FocusedControl == control) return;
 
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [control], DiagnosticPhase.Start));
+
             this.FocusedControl?.OnEvent(this, new FocusLostEventArgs(this.FocusedControl));
             this.FocusedControl = control;
             this.FocusedControl?.OnEvent(this, new FocusGainedEventArgs(this.FocusedControl));
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [control], DiagnosticPhase.End));
         }
         public virtual void SetWindowSize(int width, int height)
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [width, height], DiagnosticPhase.Start));
+
             if (this.BackTexture != IntPtr.Zero)
             {
                 SDL.DestroyTexture(this.BackTexture);
@@ -210,11 +244,15 @@ namespace PhotonUI.Controls
             this.RequestMeasure();
             this.RequestArrange();
             this.RequestRender();
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [width, height], DiagnosticPhase.End));
         }
         public virtual void SetRenderer(IntPtr renderer)
         {
             if (this.Renderer == renderer)
                 return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [renderer], DiagnosticPhase.Start));
 
             if (this.BackTexture != IntPtr.Zero)
             {
@@ -226,6 +264,8 @@ namespace PhotonUI.Controls
             this.Renderer = renderer;
 
             this.SetWindowSize((int)this.DrawRect.W, (int)this.DrawRect.H);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [renderer], DiagnosticPhase.End));
         }
 
         public PropertyAnimation<TTarget, TProp> Animate<TTarget, TProp>(TTarget target, Expression<Func<TTarget, TProp>> selector)
@@ -273,28 +313,39 @@ namespace PhotonUI.Controls
 
         protected bool NeedsRendering()
         {
-            if (this.SuppressRendering)
-                return false;
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
 
-            bool needsRender = false;
-
-            this.TunnelControls((c) =>
+            try
             {
-                if (c.IsRenderDirty)
-                {
-                    needsRender = true;
-
+                if (this.SuppressRendering)
                     return false;
-                }
-                return true;
-            });
 
-            return needsRender;
+                bool needsRender = false;
+
+                this.TunnelControls((c) =>
+                {
+                    if (c.IsRenderDirty)
+                    {
+                        needsRender = true;
+
+                        return false;
+                    }
+                    return true;
+                });
+
+                return needsRender;
+            }
+            finally
+            {
+                PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
+            }
         }
 
         protected void ApplyTick()
         {
             if (this.Child == null) return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
 
             this.Child.TunnelControls((c) =>
             {
@@ -303,10 +354,14 @@ namespace PhotonUI.Controls
 
                 return true;
             });
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         protected void ApplyAnimationRequests()
         {
             if (this.ActiveAnimations.Count == 0) return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
 
             foreach (AnimationHandle? handle in this.ActiveAnimations.ToList())
             {
@@ -324,9 +379,13 @@ namespace PhotonUI.Controls
                 if (handle.State == AnimationState.Running)
                     handle.Update();
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         protected void ApplyIntrinsicRequests()
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
+
             this.TunnelControls(control =>
             {
                 if (control.IsIntrinsicDirty)
@@ -345,9 +404,13 @@ namespace PhotonUI.Controls
                 }
                 return true;
             });
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         protected void ApplyMeasureRequests()
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
+
             this.TunnelControls(control =>
             {
                 if (control.IsMeasureDirty)
@@ -366,9 +429,13 @@ namespace PhotonUI.Controls
                 }
                 return true;
             });
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         protected void ApplyArrangeRequests()
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
+
             this.TunnelControls(control =>
             {
                 if (control.IsLayoutDirty)
@@ -391,10 +458,14 @@ namespace PhotonUI.Controls
                 }
                 return true;
             });
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         protected void ApplyLateTick()
         {
             if (this.Child == null) return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
 
             this.Child.TunnelControls((c) =>
             {
@@ -403,9 +474,13 @@ namespace PhotonUI.Controls
 
                 return true;
             });
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         protected void ApplyRenderRequests()
         {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
+
             this.TunnelControls(control =>
             {
                 if (control.IsRenderDirty)
@@ -431,10 +506,14 @@ namespace PhotonUI.Controls
 
                 return true;
             });
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         protected void ApplyPostTick()
         {
             if (this.Child == null) return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
 
             this.Child.TunnelControls((c) =>
             {
@@ -443,10 +522,14 @@ namespace PhotonUI.Controls
 
                 return true;
             });
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         protected void ApplyClearRequests()
         {
             if (this.Child == null) return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
 
             this.Child.TunnelControls((Func<Control, bool>)((c) =>
             {
@@ -461,6 +544,8 @@ namespace PhotonUI.Controls
                 }
                 return true;
             }));
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
 
         #endregion
@@ -471,6 +556,8 @@ namespace PhotonUI.Controls
         {
             if (e.Type != (uint)SDL.EventType.MouseMotion)
                 return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
 
             SDL.MouseMotionEvent motion = e.Motion;
 
@@ -487,12 +574,16 @@ namespace PhotonUI.Controls
                     focusSet = true;
                 }
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
         protected virtual void PointerButtonHandler(Window window, SDL.Event e)
         {
             if (e.Type != (uint)SDL.EventType.MouseButtonDown &&
                 e.Type != (uint)SDL.EventType.MouseButtonUp)
                 return;
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
 
             Control target = this.GetFocusedControl(e.Motion);
 
@@ -512,52 +603,62 @@ namespace PhotonUI.Controls
                 PointerClickEventArgs bubbleArgs = new(window, target, e);
                 target.FrameworkEventBubble(window, bubbleArgs);
             }
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }
 
         #endregion
 
-        #region Control: Hooks
+        #region Window: Hooks
 
         public override void OnInitialize(Window window)
         {
             if (window.IsInitialized == true) return;
 
-            if (window.Mode == WindowMode.Tangible)
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.Start));
+
+            try
             {
-                window.Handle = SDL.CreateWindow(
-                    window.DefaultTitle,
-                    (int)window.DefaultSize.Width,
-                    (int)window.DefaultSize.Height,
-                    window.DefaultFlags);
-
-                if (!window.HasTangibleWindow)
+                if (window.Mode == WindowMode.Tangible)
                 {
-                    SDL.Quit();
+                    window.Handle = SDL.CreateWindow(
+                        window.DefaultTitle,
+                        (int)window.DefaultSize.Width,
+                        (int)window.DefaultSize.Height,
+                        window.DefaultFlags);
 
-                    return;
+                    if (!window.HasTangibleWindow)
+                    {
+                        SDL.Quit();
+
+                        return;
+                    }
+
+                    window.Renderer = SDL.CreateRenderer(window.Handle, null);
+
+                    if (window.Renderer == IntPtr.Zero)
+                    {
+                        SDL.DestroyWindow(window.Handle);
+                        SDL.Quit();
+
+                        return;
+                    }
+
+                    SDL.GetWindowSize(window.Handle, out int width, out int height);
+
+                    window.SetWindowSize(width, height);
                 }
 
-                window.Renderer = SDL.CreateRenderer(window.Handle, null);
-
-                if (window.Renderer == IntPtr.Zero)
-                {
-                    SDL.DestroyWindow(window.Handle);
-                    SDL.Quit();
-
-                    return;
-                }
-
-                SDL.GetWindowSize(window.Handle, out int width, out int height);
-
-                window.SetWindowSize(width, height);
+                window.Name = window.Name;
+                window.HorizontalAlignment = Models.Properties.HorizontalAlignment.Stretch;
+                window.VerticalAlignment = Models.Properties.VerticalAlignment.Stretch;
+                window.IsInitialized = true;
+                window.Child?.OnInitialize(window);
             }
-
-            window.Name = window.Name;
-            window.HorizontalAlignment = Models.Properties.HorizontalAlignment.Stretch;
-            window.VerticalAlignment = Models.Properties.VerticalAlignment.Stretch;
-            window.IsInitialized = true;
-
-            window.Child?.OnInitialize(window);
+            finally
+            {
+                PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window], DiagnosticPhase.End));
+            }
         }
 
         #endregion
