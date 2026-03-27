@@ -241,7 +241,7 @@ namespace PhotonUI.Controls.Viewport
             PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [window, e], DiagnosticPhase.Start));
 
             if (e is PlatformEventArgs platformEvent)
-                this.ScrollbarBehavior?.OnEvent(window, platformEvent.NativeEvent);
+                this.ScrollbarBehavior?.OnEvent(window, platformEvent);
 
             base.OnEvent(window, e);
 

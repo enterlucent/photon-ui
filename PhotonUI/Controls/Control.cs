@@ -92,7 +92,7 @@ namespace PhotonUI.Controls
         public Action<PointerEnterEventArgs>? PointerEnterAction { get; set; }
         public Action<PointerExitEventArgs>? PointerExitAction { get; set; }
 
-        public Action<PointerClickEventArgs>? PointerPressAction { get; set; }
+        public Action<PointerPressEventArgs>? PointerPressAction { get; set; }
 
         #endregion
 
@@ -458,8 +458,6 @@ namespace PhotonUI.Controls
             if (invalidateRender)
                 this.RequestRender(true);
 
-            this.FrameworkEventBubble(Photon.GetWindow(this), new ChildPropertyChangedEventArgs(this, e));
-
             PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, [e], DiagnosticPhase.End));
         }
 
@@ -583,7 +581,7 @@ namespace PhotonUI.Controls
                     this.PointerExitAction?.Invoke(pointerExit);
                     break;
 
-                case PointerClickEventArgs pointerPress:
+                case PointerPressEventArgs pointerPress:
                     this.PointerPressAction?.Invoke(pointerPress);
                     break;
             }

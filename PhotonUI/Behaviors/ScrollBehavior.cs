@@ -1,4 +1,6 @@
 ﻿using PhotonUI.Controls;
+using PhotonUI.Events;
+using PhotonUI.Events.Platform;
 using PhotonUI.Models;
 using PhotonUI.Models.Properties;
 using SDL3;
@@ -172,13 +174,12 @@ namespace PhotonUI.Behaviors
             this.IsHorizontalCaretDown = false;
             this.WasHorizontalTrackClicked = false;
 
-            Window window = Photon.GetWindow(this.Control);
-
             if (this.VerticalCaretRect.HasValue && Photon.HitTest(this.VerticalCaretRect.Value, px, py))
             {
                 this.IsVerticalCaretDown = true;
 
-                window.CapturePointer(this.Control);
+                //TODO: Integrate with gesture system
+                //this.Control.Window?.CapturePointer(this.Control);
 
                 return;
             }
@@ -190,7 +191,8 @@ namespace PhotonUI.Behaviors
             }
             if (this.HorizontalCaretRect.HasValue && Photon.HitTest(this.HorizontalCaretRect.Value, px, py))
             {
-                window.CapturePointer(this.Control);
+                //TODO: Integrate with gesture system
+                //this.Control.Window?.CapturePointer(this.Control);
 
                 this.IsHorizontalCaretDown = true;
 
@@ -294,8 +296,8 @@ namespace PhotonUI.Behaviors
                 }
             }
 
-            if (this.Control != null)
-                Photon.GetWindow(this.Control).ReleasePointer();
+            //TODO: Integrate with gesture system
+            //this.Control?.Window?.ReleasePointer();
 
             this.IsVerticalCaretDown = false;
             this.WasVerticalTrackClicked = false;
@@ -381,21 +383,32 @@ namespace PhotonUI.Behaviors
 
             Photon.DrawControlTexture(this.Control, this.TextureCache, destination, viewport);
         }
-        public virtual void OnEvent(Window window, SDL.Event e)
+        public virtual void OnEvent(Window window, PlatformEventArgs e)
         {
-            switch (e.Type)
+            //TODO: Integrate with gesture system
+            //switch (e.Type)
+            //{
+            //    case (uint)SDL.EventType.MouseButtonDown:
+            //        this.HandlePointerDown(e);
+            //        break;
+            //    case (uint)SDL.EventType.MouseMotion:
+            //        this.HandlePointerMotion(e);
+            //        break;
+            //    case (uint)SDL.EventType.MouseButtonUp:
+            //        this.HandlePointerUp(e);
+            //        break;
+            //    case (uint)SDL.EventType.MouseWheel:
+            //        this.HandlePointerWheel(e);
+            //        break;
+            //}
+
+            switch (e)
             {
-                case (uint)SDL.EventType.MouseButtonDown:
-                    this.HandlePointerDown(e);
+                case PointerPressEventArgs press:
                     break;
-                case (uint)SDL.EventType.MouseMotion:
-                    this.HandlePointerMotion(e);
+                case PointerMoveEventArgs move:
                     break;
-                case (uint)SDL.EventType.MouseButtonUp:
-                    this.HandlePointerUp(e);
-                    break;
-                case (uint)SDL.EventType.MouseWheel:
-                    this.HandlePointerWheel(e);
+                case PointerWheelEventArgs turn:
                     break;
             }
         }

@@ -10,6 +10,7 @@ using PhotonUI.Extensions;
 using PhotonUI.Interfaces.Services;
 using PhotonUI.Models;
 using SDL3;
+using System.Diagnostics;
 using System.Linq.Expressions;
 
 namespace PhotonUI.Controls
@@ -21,16 +22,19 @@ namespace PhotonUI.Controls
         Logical
     }
 
-    public partial class Window(IServiceProvider serviceProvider, IBindingService bindingService, IAnimationBuilder animationBulder)
+    public partial class Window(IServiceProvider serviceProvider, IBindingService bindingService, IInputService inputService, IAnimationBuilder animationBulder)
         : Presenter(serviceProvider, bindingService)
     {
-        protected IAnimationBuilder AnimationBulder = animationBulder;
-        protected WindowMode WindowMode = WindowMode.Tangible;
+        protected IInputService InputService = inputService;
+
         protected IntPtr WindowBackTexture;
+        protected WindowMode WindowMode = WindowMode.Tangible;
+
+        protected IAnimationBuilder AnimationBulder = animationBulder;
+        protected readonly List<AnimationHandle> ActiveAnimations = [];
 
         protected Control? FocusedControl;
         protected Control? PointerCapturedControl;
-        protected readonly List<AnimationHandle> ActiveAnimations = [];
 
         public WindowMode Mode => this.WindowMode;
         public bool HasTangibleWindow => this.Mode == WindowMode.Tangible && this.Handle != IntPtr.Zero;
@@ -84,6 +88,8 @@ namespace PhotonUI.Controls
         {
             PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
 
+            this.InputService.Update(this);
+
             this.ApplyTick();
             this.ApplyAnimationRequests();
             this.ApplyIntrinsicRequests();
@@ -116,26 +122,7 @@ namespace PhotonUI.Controls
 
             try
             {
-                SDL.EventType eventType = (SDL.EventType)e.Type;
-
-                switch (eventType)
-                {
-                    case SDL.EventType.MouseMotion:
-                        this.PointerMotionHandler(this, e);
-                        this.GetFocusedControl(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
-                        return;
-
-                    case SDL.EventType.MouseButtonDown:
-                    case SDL.EventType.MouseButtonUp:
-                        this.PointerButtonHandler(this, e);
-                        this.GetFocusedControl(e.Motion)?.OnEvent(this, new PlatformEventArgs(e));
-                        return;
-
-                    case SDL.EventType.TextInput:
-                        break;
-                }
-
-                this.KeyboardInputTarget.OnEvent(this, new PlatformEventArgs(e));
+                this.InputService.Input(this, e);
             }
             finally
             {
@@ -294,7 +281,8 @@ namespace PhotonUI.Controls
 
             this.PointerCapturedControl = control;
 
-            control.OnEvent(this, new PointerCaptured(this, control));
+            //TODO: Reintegrate or remove
+            //control.OnEvent(this, new PointerCaptured(this, control));
         }
         public virtual void ReleasePointer()
         {
@@ -304,7 +292,32 @@ namespace PhotonUI.Controls
 
             this.PointerCapturedControl = null;
 
-            released.OnEvent(this, new PointerReleased(this, released));
+            //TODO: Reintegrate or remove
+            //released.OnEvent(this, new PointerReleased(this, released));
+        }
+
+        public void DispatchToControl(FrameworkEventArgs args, Control? target)
+        {
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
+
+            if (target != null)
+            {
+                List<Control> path = Photon.GetControlPath(this, c => c == target);
+
+                // Preview phase
+                args.Preview = true;
+                args.Handled = false;
+                foreach (Control control in path!)
+                    control?.OnEvent(this, args);
+
+                // Bubble phase
+                args.Preview = false;
+                args.Handled = false;
+                target.FrameworkEventBubble(this, args);
+            }
+            else this.OnEvent(this, args);
+
+            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
         }
 
         #endregion
@@ -544,65 +557,6 @@ namespace PhotonUI.Controls
                 }
                 return true;
             }));
-
-            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
-        }
-
-        #endregion
-
-        #region Window: Framework
-
-        protected virtual void PointerMotionHandler(Window window, SDL.Event e)
-        {
-            if (e.Type != (uint)SDL.EventType.MouseMotion)
-                return;
-
-            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
-
-            SDL.MouseMotionEvent motion = e.Motion;
-
-            Control? target = Photon.ResolveHitControl(window, motion.X, motion.Y);
-
-            List<Control> currentPath = target != null ? Photon.GetAncestors(target) : [];
-
-            bool focusSet = false;
-
-            for (int i = currentPath.Count - 1; i >= 0; i--)
-            {
-                if (!focusSet)
-                {
-                    focusSet = true;
-                }
-            }
-
-            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
-        }
-        protected virtual void PointerButtonHandler(Window window, SDL.Event e)
-        {
-            if (e.Type != (uint)SDL.EventType.MouseButtonDown &&
-                e.Type != (uint)SDL.EventType.MouseButtonUp)
-                return;
-
-            PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.Start));
-
-            Control target = this.GetFocusedControl(e.Motion);
-
-            List<Control>? path = Photon.GetControlPath(window, c => c == target);
-
-            if (target != null && path != null)
-            {
-                // Preview phase
-                PointerClickEventArgs previewArgs = new(window, target, e)
-                {
-                    Preview = true
-                };
-                foreach (Control control in path)
-                    control?.OnEvent(window, previewArgs);
-
-                // Bubble phase
-                PointerClickEventArgs bubbleArgs = new(window, target, e);
-                target.FrameworkEventBubble(window, bubbleArgs);
-            }
 
             PhotonDiagnostics.Emit(new ControlMethodEventArgs(this, null, DiagnosticPhase.End));
         }

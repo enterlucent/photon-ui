@@ -163,6 +163,57 @@ namespace PhotonUI
 
         #region Photon: Hit Testing
 
+        public static double GetAbsoluteZ(Control c)
+        {
+            double total = 0;
+            double weight = 1_000_000;
+
+            Stack<Control> ancestors = new();
+            Control? current = c;
+
+            while (current != null)
+            {
+                ancestors.Push(current);
+                current = current.Parent;
+            }
+
+            while (ancestors.Count > 0)
+            {
+                Control ctrl = ancestors.Pop();
+                total += ctrl.ZIndex * weight;
+                weight /= 10;
+            }
+
+            return total;
+        }
+
+        public static bool HitTest(SDL.Rect bounds, float px, float py)
+        {
+            return px >= bounds.X && px < bounds.X + bounds.W &&
+                   py >= bounds.Y && py < bounds.Y + bounds.H;
+        }
+        public static bool HitTest(SDL.FRect bounds, float px, float py)
+        {
+            return px >= bounds.X && px < bounds.X + bounds.W &&
+                   py >= bounds.Y && py < bounds.Y + bounds.H;
+        }
+        public static bool AncestorHitTest(Control control, float px, float py)
+        {
+            Control? parent = control.Parent;
+
+            while (parent != null)
+            {
+                if (parent is Window) break;
+
+                if (!HitTest(parent.DrawRect, px, py))
+                    return false;
+
+                parent = parent.Parent;
+            }
+
+            return true;
+        }
+
         public static List<Control> GetControlPath(Control root, Func<Control, bool> predicate)
         {
             List<Control> path = [];
@@ -195,56 +246,6 @@ namespace PhotonUI
 
             return depth;
         }
-        public static List<Control> GetAncestors(Control c)
-        {
-            List<Control> list = [];
-            Control? current = c;
-
-            while (current != null)
-            {
-                list.Insert(0, current);
-
-                current = current.Parent;
-            }
-
-            return list;
-        }
-        public static string GetAncestorPath(Control c)
-            => string.Join("/", GetAncestors(c).Select(a => a.Name));
-
-        public static bool IHitTest(SDL.Rect bounds, float px, float py)
-        {
-            return px >= bounds.X && px < bounds.X + bounds.W &&
-                   py >= bounds.Y && py < bounds.Y + bounds.H;
-        }
-        public static bool HitTest(SDL.FRect bounds, float px, float py)
-        {
-            return px >= bounds.X && px < bounds.X + bounds.W &&
-                   py >= bounds.Y && py < bounds.Y + bounds.H;
-        }
-        public static bool ControlHitTest(Control control, float px, float py)
-        {
-            if (!control.IsVisible || !control.IsHitTestVisible)
-                return false;
-
-            return HitTest(control.DrawRect, px, py);
-        }
-        public static bool AncestorHitTest(Control control, float px, float py)
-        {
-            Control? parent = control.Parent;
-
-            while (parent != null)
-            {
-                if (parent is Window) break;
-
-                if (!HitTest(parent.DrawRect, px, py))
-                    return false;
-
-                parent = parent.Parent;
-            }
-
-            return true;
-        }
 
         public static List<Control> GetHitControls(Window window, float px, float py)
         {
@@ -253,7 +254,7 @@ namespace PhotonUI
             window.TunnelControls((Func<Control, bool>)(c =>
             {
                 if (c.IsVisible && c.IsHitTestVisible)
-                    if (HitTest((SDL.FRect)c.DrawRect, px, py))
+                    if (HitTest((SDL.FRect)c.DrawRect, px, py) && AncestorHitTest(c, px, py))
                         hits.Add(c);
 
                 return true;
@@ -269,20 +270,14 @@ namespace PhotonUI
             {
                 List<Control> hits = GetHitControls(window, px, py);
 
-                if (hits == null || hits.Count == 0)
+                if (hits.Count == 0)
                     return null;
 
-                IOrderedEnumerable<Control> ordered = hits
-                    .Where(c => c.IsVisible && c.IsHitTestVisible)
-                    .OrderByDescending(GetAncestorPath)
-                    .ThenByDescending(c => c.ZIndex)
-                    .ThenByDescending(GetControlDepth);
-
-                foreach (Control control in ordered)
-                    if (AncestorHitTest(control, px, py))
-                        return control;
-
-                return null;
+                // Order by absolute Z first, then depth as tiebreaker
+                return hits
+                    .OrderByDescending(GetAbsoluteZ)
+                    .ThenByDescending(GetControlDepth)
+                    .FirstOrDefault();
             }
             finally
             {

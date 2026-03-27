@@ -38,7 +38,7 @@ namespace PhotonUI.Controls.Interaction
 
         #region ClickSurface: Actions
 
-        public Action<PointerClickEventArgs>? OnClickAction { get; set; }
+        public Action<PointerPressEventArgs>? OnClickAction { get; set; }
 
         #endregion
 
@@ -123,12 +123,12 @@ namespace PhotonUI.Controls.Interaction
                         break;
                 }
 
-                if (e is not PointerClickEventArgs pointerPress) return;
+                if (e is not PointerPressEventArgs pointerPress) return;
 
                 switch (pointerPress.NativeEvent.Type)
                 {
                     case (uint)SDL.EventType.MouseButtonDown:
-                        if (pointerPress.Clicked == this || this.IsDescendant(pointerPress.Clicked))
+                        if (pointerPress.Pressed == this || this.IsDescendant(pointerPress.Pressed))
                         {
                             this.IsPressed = true;
                             this.RequestRender();
@@ -138,7 +138,7 @@ namespace PhotonUI.Controls.Interaction
                         break;
 
                     case (uint)SDL.EventType.MouseButtonUp:
-                        if (pointerPress.Clicked == this || this.IsDescendant(pointerPress.Clicked))
+                        if (pointerPress.Pressed == this || this.IsDescendant(pointerPress.Pressed))
                         {
                             if (this.IsHovering && this.IsPressed)
                             {

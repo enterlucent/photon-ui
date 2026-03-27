@@ -11,6 +11,7 @@ using PhotonUI.Interfaces.Services;
 using PhotonUI.Models;
 using PhotonUI.Services;
 using PhotonUI.Services.Interpolators;
+using PhotonUI.Services.Recognizers.Gestures;
 using SDL3;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -34,12 +35,16 @@ partial class Program
                 services.AddSingleton<ITextureService, TextureService>();
                 services.AddSingleton<IBindingService, BindingService>();
                 services.AddSingleton<IClipService, ClipService>();
+                services.AddSingleton<IAnimationBuilder, AnimationBuilder>();
 
                 services.AddSingleton<IInterpolator, IntInterpolator>();
                 services.AddSingleton<IInterpolator, FloatInterpolator>();
                 services.AddSingleton<IInterpolator, SDLColorInterpolator>();
                 services.AddSingleton<IInterpolatorService, InterpolatorService>();
-                services.AddSingleton<IAnimationBuilder, AnimationBuilder>();
+
+                services.AddTransient<IGestureRecognizer, MoveGesture>();
+                services.AddTransient<IGestureRecognizer, PressGesture>();
+                services.AddTransient<IInputService, InputService>();
 
                 services.AddTransient<MainView>();
                 services.AddTransient<MainViewModel>();

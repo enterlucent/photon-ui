@@ -342,7 +342,7 @@ namespace PhotonUI.Controls.Content
 
         protected virtual void RebuildTexture(Window window, ClipFrame frame, int frameIndex)
         {
-            //TODO: Commented Out
+            //TODO: Reintegrate or remove
             /*
             if (this.FrameCache.TryGetValue(frameIndex, out IntPtr oldTex) && oldTex != IntPtr.Zero)
             {
